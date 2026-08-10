@@ -65,7 +65,7 @@ describe("releases", () => {
 
   it("offers an Underground career a loose track or a single, and nothing else", async () => {
     const [career] = await test.handle.db.select().from(careers).where(eq(careers.id, careerId));
-    const catalogue = await getCatalogue(test.ctx, career!);
+    const catalogue = await getCatalogue(test.handle.db, career!);
 
     const open = catalogue.formats.filter((format) => format.available).map((f) => f.format);
     expect(open.sort()).toEqual(["LOOSE_TRACK", "SINGLE"]);
@@ -327,7 +327,7 @@ describe("releases", () => {
 
   it("shows the catalogue as released work plus its release", async () => {
     const [career] = await test.handle.db.select().from(careers).where(eq(careers.id, careerId));
-    const catalogue = await getCatalogue(test.ctx, career!);
+    const catalogue = await getCatalogue(test.handle.db, career!);
 
     expect(catalogue.releasedCount).toBe(1);
     expect(catalogue.tracks[0]!.track.title).toBe("NO RECEPTION");

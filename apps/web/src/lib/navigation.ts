@@ -35,6 +35,12 @@ export const primaryDestinations: Destination[] = [
 ];
 
 export const utilityDestinations: Destination[] = [
+  {
+    href: "/catalogue",
+    label: "Catalogue",
+    icon: "studio",
+    description: "Everything you've made, and what you decided about it.",
+  },
   { href: "/search", label: "Search", icon: "search", description: "Find artists, groups and scenes." },
   { href: "/messages", label: "Messages", icon: "messages", description: "Conversations with the industry." },
   {

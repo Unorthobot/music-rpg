@@ -5,6 +5,7 @@ import {
   releases,
   tracks,
   type CareerRow,
+  type Database,
   type ReleaseRow,
   type TrackRow,
 } from "@music-rpg/database";
@@ -767,14 +768,14 @@ export async function publishRelease(
 }
 
 /** Everything the catalogue screen needs, including what is locked and why. */
-export async function getCatalogue(ctx: CommandContext, career: CareerRow) {
+export async function getCatalogue(db: Database, career: CareerRow) {
   const [trackRows, releaseRows] = await Promise.all([
-    ctx.db
+    db
       .select()
       .from(tracks)
       .where(and(eq(tracks.careerId, career.id), ne(tracks.status, "SCRAPPED")))
       .orderBy(tracks.createdAt),
-    ctx.db.select().from(releases).where(eq(releases.careerId, career.id)),
+    db.select().from(releases).where(eq(releases.careerId, career.id)),
   ]);
 
   return {

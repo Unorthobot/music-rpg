@@ -1,23 +1,22 @@
 "use client";
 
-import { useState } from "react";
 import { MusicMiniPlayer } from "@music-rpg/ui";
+import { usePlayer } from "@/components/player/player-provider";
 
 /**
- * The persistent player.
+ * The player bar is a view.
  *
- * State lives here so the shell stays a server component. There is no catalogue
- * yet, so the player holds its idle state honestly rather than pretending to
- * have a queue.
+ * It remounts with each page; the playback it reflects does not, because that
+ * lives in the provider above the routes.
  */
 export function PlayerBar() {
-  const [playing, setPlaying] = useState(false);
+  const { current, playing, toggle } = usePlayer();
 
   return (
     <MusicMiniPlayer
-      track={null}
+      track={current ? { title: current.title, artistName: current.artistName } : null}
       playing={playing}
-      onTogglePlay={() => setPlaying((value) => !value)}
+      onTogglePlay={toggle}
     />
   );
 }
