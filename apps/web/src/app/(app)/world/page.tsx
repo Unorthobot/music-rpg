@@ -1,7 +1,8 @@
-import { eq } from "drizzle-orm";
-import { scenes } from "@music-rpg/database";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { scenes, tracks } from "@music-rpg/database";
 import { gameEventLabels, listCareerEvents } from "@music-rpg/events";
-import { EmptyState, Label, Surface, WorldEventCard } from "@music-rpg/ui";
+import Link from "next/link";
+import { EmptyState, Label, Surface, Tag, WorldEventCard } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
 import { ACT_LABELS, requireCareer } from "@/lib/career";
@@ -20,6 +21,18 @@ export default async function WorldPage() {
   const db = await getAppDb();
 
   const worldScenes = await db.select().from(scenes).where(eq(scenes.worldId, view.world.id));
+
+  /*
+   * What the world can actually discover. A release that nobody can find is
+   * only half-published, so released work from this world is listed here —
+   * including other careers', once there are any.
+   */
+  const released = await db
+    .select()
+    .from(tracks)
+    .where(and(eq(tracks.worldId, view.world.id), isNotNull(tracks.releasedAt)))
+    .orderBy(desc(tracks.releasedAt))
+    .limit(20);
   const events = await listCareerEvents(db, view.career.id, 20);
   const publicEvents = events
     .filter((event) => event.visibility === "LOCAL_PUBLIC" || event.visibility === "GLOBAL_PUBLIC")
@@ -48,12 +61,44 @@ export default async function WorldPage() {
       }
       contextLabel="World context"
     >
-      <EmptyState
-        eyebrow={view.world.name}
-        title="The scene is quiet for now."
-        description="Shows, rivals, scene politics and world events start moving in a later milestone. The world itself already exists — it just hasn't noticed you."
-        comingNext
-      />
+      {released.length === 0 ? (
+        <EmptyState
+          eyebrow={view.world.name}
+          title="The scene is quiet for now."
+          description="Nothing has been released here yet. Shows, rivals and scene politics start moving in a later milestone."
+          comingNext
+        />
+      ) : (
+        <section className="flex flex-col gap-3">
+          <Label>Out in {view.world.name}</Label>
+          <ul className="flex flex-col gap-2">
+            {released.map((trackRow) => (
+              <li key={trackRow.id}>
+                <Link href={`/world/${view.world.slug}/track/${trackRow.id}`} className="block">
+                  <Surface
+                    level={1}
+                    padded="sm"
+                    className="flex items-center justify-between gap-4 hover:border-line-strong transition-colors duration-fast"
+                  >
+                    <span className="flex flex-col gap-1 min-w-0">
+                      <span className="text-base text-ink truncate">
+                        {trackRow.title ?? "Untitled"}
+                      </span>
+                      <span className="text-xs text-ink-subtle">
+                        {trackRow.ownerType === "GROUP" ? "Group release" : "Solo release"}
+                      </span>
+                    </span>
+                    <Tag tone="ember">Out now</Tag>
+                  </Surface>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-ink-muted">
+            How any of it is received is a later milestone. Right now it simply exists.
+          </p>
+        </section>
+      )}
 
       <section className="flex flex-col gap-3">
         <Label>Scenes</Label>

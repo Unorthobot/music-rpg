@@ -68,10 +68,7 @@ export default async function PublicTrackPage({
         <h1 className="text-4xl md:text-5xl font-semibold tracking-display break-words">
           {trackRow.title ?? "Untitled"}
         </h1>
-        <p className="text-lg text-ink-muted">
-          {billedAs}
-          {group && artist ? ` · with ${artist.stageName}` : ""}
-        </p>
+        <p className="text-lg text-ink-muted">{billedAs}</p>
         <div className="flex flex-wrap items-center gap-2">
           <Tag tone="ember">Out now</Tag>
           <span className="text-xs text-ink-subtle">
@@ -107,6 +104,34 @@ export default async function PublicTrackPage({
           <p className="text-sm text-ink-subtle">{master.content.structure.join(" · ")}</p>
         </Surface>
       ) : null}
+
+      {/*
+        * Credits, not decoration. A group is billed as the primary artist, and
+        * the member who actually made it is still named — losing that the
+        * moment work becomes public is exactly the solo assumption we refuse.
+        */}
+      <section className="flex flex-col gap-2">
+        <Label>Credits</Label>
+        <ul className="flex flex-col gap-1 text-sm">
+          <li className="text-ink">
+            <span className="text-ink-subtle">Primary artist · </span>
+            {billedAs}
+          </li>
+          {artist ? (
+            <li className="text-ink">
+              <span className="text-ink-subtle">
+                {group ? "Contributing artist · " : "Performed by · "}
+              </span>
+              <Link
+                href={`/world/${world.slug}/artist/${artist.slug}`}
+                className="text-ember underline underline-offset-4"
+              >
+                {artist.stageName}
+              </Link>
+            </li>
+          ) : null}
+        </ul>
+      </section>
 
       {artist ? (
         <Link
