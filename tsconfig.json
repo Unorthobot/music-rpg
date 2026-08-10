@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  // Apps carry their own tsconfig (Next adds the `@/*` alias and its plugin);
+  // `npm run typecheck` runs both projects.
+  "include": ["packages/**/*.ts", "packages/**/*.tsx", "tests/**/*.ts"],
+  "exclude": ["node_modules", "**/node_modules", "**/.next", "**/dist"]
+}

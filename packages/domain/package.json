@@ -1,0 +1,13 @@
+{
+  "name": "@music-rpg/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {"@music-rpg/shared":"*","@music-rpg/database":"*","@music-rpg/events":"*","@music-rpg/simulation":"*","@music-rpg/analytics":"*","@music-rpg/moderation":"*","drizzle-orm":"^0.38.3"}
+}

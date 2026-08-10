@@ -1,0 +1,35 @@
+/**
+ * Product analytics vocabulary.
+ *
+ * Separate from the canonical game event log by design: this measures the
+ * funnel, that records the fiction. Never derive one from the other.
+ */
+export const ANALYTICS_EVENTS = [
+  "account_created",
+  "career_creation_started",
+  "career_type_selected",
+  "artist_creation_started",
+  "group_creation_started",
+  "sound_discovery_started",
+  "sound_discovery_answered",
+  "sound_discovery_completed",
+  "artist_created",
+  "group_created",
+  "artist_reveal_viewed",
+  "artist_tuned",
+  "group_reveal_viewed",
+  "career_onboarding_completed",
+  "home_viewed",
+  "home_first_viewed",
+] as const;
+
+export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];
+
+export type AnalyticsEvent = {
+  name: AnalyticsEventName;
+  userId?: string | null;
+  careerId?: string | null;
+  anonymousId?: string | null;
+  properties?: Record<string, unknown>;
+  occurredAt?: Date;
+};

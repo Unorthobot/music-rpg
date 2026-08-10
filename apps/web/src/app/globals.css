@@ -1,0 +1,25 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens are imported ahead of this file in the root layout, so Tailwind
+ * utilities layer on top of them. Everything colour-, type- and focus-related
+ * lives in `@music-rpg/ui/tokens.css`; nothing is redefined here.
+ */
+@layer base {
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+  }
+
+  /* Tailwind preflight resets the token heading styles — restore them. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: var(--tracking-display);
+    line-height: var(--leading-tight);
+  }
+}

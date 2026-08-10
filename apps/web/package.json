@@ -1,0 +1,38 @@
+{
+  "name": "@music-rpg/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@music-rpg/ai": "*",
+    "@music-rpg/analytics": "*",
+    "@music-rpg/auth": "*",
+    "@music-rpg/database": "*",
+    "@music-rpg/domain": "*",
+    "@music-rpg/events": "*",
+    "@music-rpg/jobs": "*",
+    "@music-rpg/moderation": "*",
+    "@music-rpg/shared": "*",
+    "@music-rpg/simulation": "*",
+    "@music-rpg/storage": "*",
+    "@music-rpg/ui": "*",
+    "clsx": "^2.1.1",
+    "drizzle-orm": "^0.38.4",
+    "next": "14.2.20",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "server-only": "^0.0.1"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.2.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17"
+  }
+}
