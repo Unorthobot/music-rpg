@@ -6,6 +6,7 @@ import { soundDiscoverySessions, users } from "@music-rpg/database";
 import { PSYCHOLOGY_KEYS, SKILL_KEYS, SOUND_DIMENSIONS, formatMoney } from "@music-rpg/shared";
 import { Label, Surface } from "@music-rpg/ui";
 import { getAppDb } from "@/lib/db";
+import { CareerCausality } from "./causality";
 
 /**
  * The inspector view that answers "how did this career come to exist?".
@@ -163,6 +164,8 @@ export default async function WorldControlCareerDetail({
           </pre>
         </Surface>
       ) : null}
+
+      <CareerCausality db={db} careerId={view.career.id} />
 
       <section className="flex flex-col gap-3">
         <Label>Canonical events ({events.length})</Label>

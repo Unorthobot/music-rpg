@@ -40,7 +40,9 @@ test("solo: register, build an artist, and enter the underground", async ({ page
   // hidden on mobile, so target the header explicitly).
   await expect(page.locator("header").getByText("The Underground")).toBeVisible();
   await expect(page.getByText("R5,000").first()).toBeVisible();
-  await expect(page.getByText("Every career starts somewhere.")).toBeVisible();
+  // Since M2, arriving in the Underground is not silence: the scene reaches
+  // out, and that message is the one thing waiting on the player.
+  await expect(page.getByText("Thabo sent you a message.")).toBeVisible();
 
   // The career is server state: a full reload changes nothing.
   await page.reload();
@@ -56,10 +58,11 @@ test("solo: register, build an artist, and enter the underground", async ({ page
   await page.goto("/crew");
   await expect(page.getByText(/No crew yet/)).toBeVisible();
 
-  // The Studio exists but is honestly locked.
+  // The Studio exists, and since M3 it tells the truth about how to get into
+  // it: sessions come from producers, and producers come from people.
   await page.goto("/studio");
   await expect(page.getByText("Your first session starts here.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Start a session" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Open messages" })).toBeVisible();
 });
 
 test("solo: onboarding resumes at the step it was left on", async ({ page }) => {
