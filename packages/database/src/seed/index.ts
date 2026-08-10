@@ -3,6 +3,7 @@ import { ids, slugify } from "@music-rpg/shared";
 import {
   archetypeCatalogue,
   candidateSeeds,
+  characterSeeds,
   describeSound,
   discoveryQuestions,
   expandPsychology,
@@ -18,6 +19,7 @@ import {
   artistSkills,
   artistTraits,
   artists,
+  characters,
   scenes,
   soundDiscoveryQuestions,
   soundProfiles,
@@ -40,6 +42,7 @@ export type SeedResult = {
   traits: number;
   questions: number;
   candidates: number;
+  characters: number;
 };
 
 export async function seedDatabase(db: Database): Promise<SeedResult> {
@@ -50,6 +53,7 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
     traits: 0,
     questions: 0,
     candidates: 0,
+    characters: 0,
   };
 
   // --- Archetypes ---------------------------------------------------------
@@ -157,6 +161,34 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
         })
         .onConflictDoNothing({ target: [scenes.worldId, scenes.slug] });
       result.scenes += 1;
+    }
+
+    // --- Characters: the connector and the producers ---------------------
+    for (const character of characterSeeds) {
+      const values = {
+        worldId,
+        name: character.name,
+        role: character.role,
+        tier: character.tier,
+        biography: character.biography,
+        quote: character.quote,
+        origin: character.origin,
+        personality: character.personality,
+        motives: character.motives,
+        // The producer profile is what the interpretation engine reads.
+        preferences: character.producer ? { producer: character.producer } : {},
+        currentGoal: character.currentGoal ?? null,
+        currentMood: character.currentMood ?? null,
+      };
+
+      await db
+        .insert(characters)
+        .values({ id: ids.generic(), slug: character.slug, ...values })
+        .onConflictDoUpdate({
+          target: [characters.worldId, characters.slug],
+          set: values,
+        });
+      result.characters += 1;
     }
 
     for (const candidate of candidateSeeds) {

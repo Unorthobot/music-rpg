@@ -29,6 +29,33 @@ export const GameEventType = {
   ControlledEntityAssigned: "career.controlled_entity_assigned",
   CareerOnboardingCompleted: "career.onboarding_completed",
   CareerEnteredUnderground: "career.entered_underground",
+
+  /* --- M2: Career HQ --------------------------------------------------- */
+  CharacterFirstContactCreated: "character.first_contact_created",
+  NpcMessageSent: "npc.message_sent",
+  OpportunityCreated: "opportunity.created",
+  OpportunityAccepted: "opportunity.accepted",
+  OpportunityResolved: "opportunity.resolved",
+  ProducerSelected: "producer.selected",
+  CalendarItemCreated: "calendar_item.created",
+  CalendarItemCompleted: "calendar_item.completed",
+  TransactionRecorded: "transaction.recorded",
+
+  /* --- M3: Studio ------------------------------------------------------ */
+  CreativeSessionCreated: "creative_session.created",
+  CreativeSessionStarted: "creative_session.started",
+  CreativeDirectionSet: "creative_direction.set",
+  ProducerInterpretationCreated: "producer.interpretation_created",
+  CreativeDecisionRecorded: "creative_decision.recorded",
+  TrackCreated: "track.created",
+  TrackVersionCreated: "track_version.created",
+  GenerationRequested: "generation.requested",
+  GenerationCompleted: "generation.completed",
+  GenerationFailed: "generation.failed",
+  TrackVersionMastered: "track_version.mastered",
+  TrackRenamed: "track.renamed",
+  TrackSavedToCatalogue: "track.saved_to_catalogue",
+  CreativeSessionCompleted: "creative_session.completed",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -52,6 +79,31 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "career.controlled_entity_assigned": "Controlled entity assigned",
   "career.onboarding_completed": "Career onboarding completed",
   "career.entered_underground": "Career entered The Underground",
+
+  "character.first_contact_created": "First contact made",
+  "npc.message_sent": "Message received",
+  "opportunity.created": "Opportunity appeared",
+  "opportunity.accepted": "Opportunity accepted",
+  "opportunity.resolved": "Opportunity resolved",
+  "producer.selected": "Producer chosen",
+  "calendar_item.created": "Scheduled",
+  "calendar_item.completed": "Calendar item completed",
+  "transaction.recorded": "Money moved",
+
+  "creative_session.created": "Studio session booked",
+  "creative_session.started": "Studio session started",
+  "creative_direction.set": "Creative direction set",
+  "producer.interpretation_created": "Producer responded",
+  "creative_decision.recorded": "Creative decision made",
+  "track.created": "Track started",
+  "track_version.created": "Version created",
+  "generation.requested": "Render requested",
+  "generation.completed": "Render completed",
+  "generation.failed": "Render failed",
+  "track_version.mastered": "Version mastered",
+  "track.renamed": "Track renamed",
+  "track.saved_to_catalogue": "Track saved to catalogue",
+  "creative_session.completed": "Studio session completed",
 };
 
 export type RecordEventInput = {

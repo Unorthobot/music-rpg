@@ -90,7 +90,7 @@ describe("home counters read from projections", () => {
         ownerType: "ARTIST",
         ownerId: artistId,
         title: "Untitled 1",
-        status: "DRAFT",
+        status: "IDEA",
       },
       {
         id: ids.generic(),
@@ -99,7 +99,18 @@ describe("home counters read from projections", () => {
         ownerType: "ARTIST",
         ownerId: artistId,
         title: "First single",
-        status: "RELEASED",
+        status: "COMPLETE",
+        // Releases are a later milestone; a release date is what counts.
+        releasedAt: new Date(),
+      },
+      {
+        id: ids.generic(),
+        worldId,
+        careerId,
+        ownerType: "ARTIST",
+        ownerId: artistId,
+        title: "Abandoned",
+        status: "SCRAPPED",
       },
     ]);
 
@@ -114,6 +125,7 @@ describe("home counters read from projections", () => {
 
     const counters = await getCareerCounters(test.handle.db, { id: careerId });
 
+    // Scrapped work is not in the catalogue.
     expect(counters.catalogue).toBe(2);
     expect(counters.releases).toBe(1);
     expect(counters.battles).toBe(1);

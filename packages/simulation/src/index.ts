@@ -5,6 +5,7 @@ export * from "./inference/archetype";
 export * from "./inference/member";
 export * from "./content/members";
 export * from "./content/archetypes";
+export * from "./content/characters";
 export * from "./content/candidates";
 export * from "./content/questions";
 export * from "./content/traits";

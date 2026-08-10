@@ -1,15 +1,7 @@
+import Link from "next/link";
 import { formatCount, formatMoney } from "@music-rpg/shared";
-import { listCareerEvents, gameEventLabels } from "@music-rpg/events";
-import { getCareerCounters } from "@music-rpg/domain";
-import {
-  CareerMetric,
-  EmptyState,
-  Label,
-  LinkButton,
-  MissionCard,
-  Surface,
-  WorldEventCard,
-} from "@music-rpg/ui";
+import { createFirstContact, getCareerCounters, getCareerHome } from "@music-rpg/domain";
+import { CareerMetric, Label, LinkButton, Surface } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
 import { createCommandContext } from "@/lib/command-context";
@@ -18,26 +10,40 @@ import { ACT_LABELS, ACT_LINES, requireCareer } from "@/lib/career";
 export const metadata = { title: "Home" };
 
 /**
- * Home.
+ * Career HQ.
  *
- * Reads real career state only: the money is the persisted balance, the metrics
- * are the four independent currencies, the history is the canonical event log.
- * The one thing that does not exist yet — missions — is shown as explicitly
- * inactive rather than mocked.
+ * Where am I, what is happening, what should I care about right now — in that
+ * order, and every answer read from state. The one thing Home *does* rather
+ * than reads is trigger first contact, which is idempotent by construction:
+ * the scene reaching out is part of arriving, not a button the player presses.
  */
 export default async function HomePage() {
   const { user, view } = await requireCareer();
   const act = view.career.careerAct;
-
   const ctx = await createCommandContext();
+
+  // Idempotent: creates the conversation, message and opportunity exactly once.
+  await createFirstContact(ctx, { careerId: view.career.id, userId: user.id });
+
+  const db = await getAppDb();
+  const [counters, home] = await Promise.all([
+    getCareerCounters(db, view.career),
+    getCareerHome(db, view.career),
+  ]);
+
   await ctx.analytics.track({
     name: "home_viewed",
     userId: user.id,
     careerId: view.career.id,
-    properties: { act },
+    properties: { act, rightNow: home.rightNow.kind },
+  });
+  await ctx.analytics.track({
+    name: "home_right_now_viewed",
+    userId: user.id,
+    careerId: view.career.id,
+    properties: { kind: home.rightNow.kind },
   });
 
-  // "First view" is derived from persisted state, not a client-side flag.
   const isFirstView =
     view.career.onboardingCompletedAt &&
     Date.now() - new Date(view.career.onboardingCompletedAt).getTime() < 60_000;
@@ -50,43 +56,49 @@ export default async function HomePage() {
     });
   }
 
-  const db = await getAppDb();
-  const [events, counters] = await Promise.all([
-    listCareerEvents(db, view.career.id, 6),
-    // Every counter below is read from a table. They are zero because the
-    // simulation says zero, not because this file says zero.
-    getCareerCounters(db, view.career),
-  ]);
-  const recent = [...events].reverse();
-
   const context = (
     <>
       <Surface level={1} padded="lg" className="flex flex-col gap-2">
         <Label>Act</Label>
         <p className="text-lg font-semibold tracking-display">{ACT_LABELS[act]}</p>
         <p className="text-sm text-ink-muted">{ACT_LINES[act]}</p>
+        <p className="text-xs text-ink-subtle mt-2">
+          {new Date(view.career.currentGameDate).toLocaleDateString("en-ZA", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}{" "}
+          in {view.world.name}
+        </p>
       </Surface>
 
       <Surface level={1} padded="lg" className="flex flex-col gap-3">
-        <Label>Career history</Label>
-        {recent.length === 0 ? (
-          <p className="text-sm text-ink-subtle">Nothing has happened yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {recent.map((event) => (
-              <li key={event.id}>
-                <WorldEventCard
-                  label={gameEventLabels[event.eventType as keyof typeof gameEventLabels] ?? event.eventType}
-                  timestamp={new Date(event.occurredAt).toLocaleDateString("en-ZA", {
-                    day: "numeric",
-                    month: "short",
-                  })}
-                  importance={event.importance}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
+        <Label>Career pulse</Label>
+        <ul className="flex flex-col gap-2 text-sm text-ink-muted">
+          <li className="flex justify-between gap-3">
+            <span>Spent</span>
+            <span className="text-ink tabular-nums">{formatMoney(home.pulse.spentMinor)}</span>
+          </li>
+          <li className="flex justify-between gap-3">
+            <span>Studio sessions</span>
+            <span className="text-ink tabular-nums">
+              {home.pulse.sessionsCompleted} / {home.pulse.sessionsBooked}
+            </span>
+          </li>
+          <li className="flex justify-between gap-3">
+            <span>Tracks created</span>
+            <span className="text-ink tabular-nums">{home.pulse.tracksCreated}</span>
+          </li>
+        </ul>
+        {home.nextCalendarItem ? (
+          <p className="text-xs text-ink-subtle border-t border-line-subtle pt-3">
+            Next: {home.nextCalendarItem.title} —{" "}
+            {new Date(home.nextCalendarItem.startGameTime).toLocaleDateString("en-ZA", {
+              day: "numeric",
+              month: "short",
+            })}
+          </p>
+        ) : null}
       </Surface>
     </>
   );
@@ -100,6 +112,23 @@ export default async function HomePage() {
       context={context}
       contextLabel="Career context"
     >
+      <section className="flex flex-col gap-3">
+        <Label>Right now</Label>
+        <Surface
+          level={2}
+          padded="lg"
+          className="flex flex-col gap-3 border-ember-line bg-ember-soft"
+        >
+          <p className="text-xl md:text-2xl font-semibold tracking-display text-balance">
+            {home.rightNow.title}
+          </p>
+          <p className="text-sm text-ink-muted max-w-[60ch]">{home.rightNow.detail}</p>
+          <div className="pt-1">
+            <LinkButton href={home.rightNow.href}>{home.rightNow.cta}</LinkButton>
+          </div>
+        </Surface>
+      </section>
+
       <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <CareerMetric
           label="Balance"
@@ -133,38 +162,60 @@ export default async function HomePage() {
         <CareerMetric
           label="Catalogue"
           value={formatCount(counters.catalogue)}
-          descriptor={counters.releases === 0 ? "No releases." : `${counters.releases} released.`}
+          descriptor={counters.catalogue === 0 ? "No tracks." : "Yours."}
           tone="neutral"
         />
         <CareerMetric
           label="Battles"
           value={formatCount(counters.battles)}
-          descriptor={counters.battles === 0 ? "Untested." : "On the record."}
+          descriptor="Untested."
           tone="neutral"
         />
       </section>
 
-      <EmptyState
-        eyebrow={ACT_LABELS[act]}
-        title="Every career starts somewhere."
-        description={`${view.displayName} exists, has a sound, and has ${formatMoney(
-          view.career.moneyBalance,
-        )} in ${view.world.name}. Nobody is listening yet. That is the entire problem, and the next milestone is where you start solving it.`}
-        action={
-          <LinkButton href="/career" variant="secondary">
-            See your identity
-          </LinkButton>
-        }
-      />
-
       <section className="flex flex-col gap-3">
-        <Label>Next</Label>
-        <MissionCard
-          title="Your first move"
-          summary="Story and missions arrive with the Studio milestone. Nothing here is playable yet — and nothing is pretending to be."
-          status="LOCKED"
-        />
+        <Label>Your story</Label>
+        {home.story.length === 0 ? (
+          <Surface level={1} padded="lg">
+            <p className="text-lg text-ink">Every career starts somewhere.</p>
+            <p className="text-sm text-ink-muted mt-2">
+              {view.displayName} exists, has a sound, and has{" "}
+              {formatMoney(view.career.moneyBalance)} in {view.world.name}. Nobody is listening yet.
+            </p>
+          </Surface>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {home.story.map((card) => (
+              <li key={card.id}>
+                <Surface level={1} padded="sm" className="flex items-start justify-between gap-4">
+                  <span className="flex flex-col gap-1 min-w-0">
+                    <Label>{card.eyebrow}</Label>
+                    <span className="text-base text-ink">{card.title}</span>
+                    {card.detail ? (
+                      <span className="text-sm text-ink-muted">{card.detail}</span>
+                    ) : null}
+                  </span>
+                  <time className="text-2xs uppercase tracking-label text-ink-subtle whitespace-nowrap">
+                    {new Date(card.occurredAt).toLocaleDateString("en-ZA", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </time>
+                </Surface>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
+
+      {home.unreadMessages > 0 ? (
+        <Link
+          href="/messages"
+          className="text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+        >
+          {home.unreadMessages} unread {home.unreadMessages === 1 ? "message" : "messages"}
+        </Link>
+      ) : null}
     </AppShell>
   );
 }

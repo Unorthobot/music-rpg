@@ -1,4 +1,5 @@
 import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import type { TrackStatus } from "@music-rpg/shared";
 import { careers } from "./career";
 import { worlds } from "./world";
 
@@ -35,10 +36,20 @@ export const tracks = pgTable(
       .notNull()
       .references(() => worlds.id, { onDelete: "cascade" }),
     careerId: text("career_id").references(() => careers.id, { onDelete: "cascade" }),
+    /**
+     * Primary owner. A group career's track belongs to the Group — and
+     * `primaryArtistId` still names the player's own artist, so a member
+     * leaving never erases who made it.
+     */
     ownerType: text("owner_type").$type<"ARTIST" | "GROUP">().notNull(),
     ownerId: text("owner_id").notNull(),
-    title: text("title").notNull(),
-    status: text("status").$type<"DRAFT" | "RELEASED" | "SHELVED">().notNull().default("DRAFT"),
+    primaryArtistId: text("primary_artist_id"),
+    /** Null until the player names it; a working title lives on the version. */
+    title: text("title"),
+    purpose: text("purpose").notNull().default("TRACK"),
+    status: text("status").$type<TrackStatus>().notNull().default("IDEA"),
+    currentMasterVersionId: text("current_master_version_id"),
+    sessionId: text("session_id"),
     releasedAt: timestamp("released_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

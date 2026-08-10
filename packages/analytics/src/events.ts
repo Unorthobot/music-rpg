@@ -24,6 +24,32 @@ export const ANALYTICS_EVENTS = [
   "career_onboarding_completed",
   "home_viewed",
   "home_first_viewed",
+
+  /* --- M2: Career HQ --------------------------------------------------- */
+  "home_right_now_viewed",
+  "npc_conversation_opened",
+  "producer_opportunity_viewed",
+  "producer_selected",
+  "calendar_viewed",
+  "studio_session_cta_clicked",
+
+  /* --- M3: Studio ------------------------------------------------------ */
+  "studio_home_viewed",
+  "new_session_started",
+  "creative_direction_started",
+  "creative_direction_submitted",
+  "producer_interpretation_viewed",
+  "producer_proposal_selected",
+  "producer_proposal_rejected",
+  "producer_proposals_combined",
+  "quick_render_requested",
+  "quick_render_completed",
+  "track_version_reviewed",
+  "revision_requested",
+  "master_requested",
+  "master_completed",
+  "track_saved",
+  "studio_session_completed",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

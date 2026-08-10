@@ -90,14 +90,84 @@ export const ONBOARDING_STATES = [
 ] as const;
 export type OnboardingState = (typeof ONBOARDING_STATES)[number];
 
+/**
+ * Generation job lifecycle.
+ *
+ * The state machine is the contract, not the provider: a deterministic
+ * development provider walks the same states a hosted audio model will, so the
+ * UI and the domain never learn which one they are talking to.
+ */
 export const GENERATION_JOB_STATUSES = [
+  "REQUESTED",
   "QUEUED",
-  "RUNNING",
-  "SUCCEEDED",
+  "GENERATING",
+  "EVALUATING",
+  "COMPLETE",
   "FAILED",
   "CANCELLED",
 ] as const;
 export type GenerationJobStatus = (typeof GENERATION_JOB_STATUSES)[number];
+
+/** Terminal states: a job in one of these will never change again. */
+export const TERMINAL_JOB_STATUSES: GenerationJobStatus[] = ["COMPLETE", "FAILED", "CANCELLED"];
+
+/* --- People ------------------------------------------------------------- */
+
+export const CHARACTER_TIERS = ["CORE", "WORLD", "BACKGROUND"] as const;
+export type CharacterTier = (typeof CHARACTER_TIERS)[number];
+
+export const CHARACTER_ROLES = [
+  "CONNECTOR",
+  "PRODUCER",
+  "ENGINEER",
+  "MANAGER",
+  "PROMOTER",
+  "JOURNALIST",
+  "EXECUTIVE",
+  "ARTIST",
+] as const;
+export type CharacterRole = (typeof CHARACTER_ROLES)[number];
+
+/* --- Opportunities ------------------------------------------------------ */
+
+export const OPPORTUNITY_TYPES = ["PRODUCER_INTRO"] as const;
+export type OpportunityType = (typeof OPPORTUNITY_TYPES)[number];
+
+export const OPPORTUNITY_STATUSES = [
+  "AVAILABLE",
+  "ACCEPTED",
+  "DECLINED",
+  "EXPIRED",
+  "RESOLVED",
+] as const;
+export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
+
+/* --- Calendar ----------------------------------------------------------- */
+
+export const CALENDAR_ITEM_TYPES = [
+  "STUDIO",
+  "PERFORMANCE",
+  "RELEASE",
+  "MEETING",
+  "REHEARSAL",
+  "MEDIA",
+  "REST",
+  "OTHER",
+] as const;
+export type CalendarItemType = (typeof CALENDAR_ITEM_TYPES)[number];
+
+export const CALENDAR_ITEM_STATUSES = ["SCHEDULED", "ACTIVE", "COMPLETED", "CANCELLED"] as const;
+export type CalendarItemStatus = (typeof CALENDAR_ITEM_STATUSES)[number];
+
+/* --- Money -------------------------------------------------------------- */
+
+export const TRANSACTION_CATEGORIES = [
+  "STUDIO_COST",
+  "SESSION_REFUND",
+  "STARTING_CAPITAL",
+  "OTHER",
+] as const;
+export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];
 
 export const ARCHETYPES = [
   "THE_ARCHITECT",

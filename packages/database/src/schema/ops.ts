@@ -23,7 +23,13 @@ export const generationJobs = pgTable(
     worldId: text("world_id").references(() => worlds.id, { onDelete: "cascade" }),
     careerId: text("career_id").references(() => careers.id, { onDelete: "cascade" }),
     jobType: text("job_type").notNull(),
-    status: text("status").$type<GenerationJobStatus>().notNull().default("QUEUED"),
+    status: text("status").$type<GenerationJobStatus>().notNull().default("REQUESTED"),
+    /** The session and version this job belongs to, for causality. */
+    sessionId: text("session_id"),
+    trackVersionId: text("track_version_id"),
+    /** A retried request resolves to the same job instead of a second render. */
+    idempotencyKey: text("idempotency_key"),
+    provider: text("provider").notNull().default("development"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
     result: jsonb("result").$type<Record<string, unknown>>(),
     error: text("error"),

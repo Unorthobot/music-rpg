@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, ne, sql } from "drizzle-orm";
 import {
   battles,
   careerAudience,
@@ -39,19 +39,23 @@ export async function getCareerCounters(
 ): Promise<CareerCounters> {
   const [audienceRows, catalogue, releases, battleCount] = await Promise.all([
     db.select().from(careerAudience).where(eq(careerAudience.careerId, career.id)).limit(1),
+    // Catalogue is everything that still exists as work; a scrapped idea is
+    // not in your catalogue.
     countRows(
       db,
       db
         .select({ value: sql<number>`count(*)::int` })
         .from(tracks)
-        .where(eq(tracks.careerId, career.id)),
+        .where(and(eq(tracks.careerId, career.id), ne(tracks.status, "SCRAPPED"))),
     ),
+    // Releases are a later milestone; a track is released when it has a
+    // release date, not when it is finished.
     countRows(
       db,
       db
         .select({ value: sql<number>`count(*)::int` })
         .from(tracks)
-        .where(and(eq(tracks.careerId, career.id), eq(tracks.status, "RELEASED"))),
+        .where(and(eq(tracks.careerId, career.id), isNotNull(tracks.releasedAt))),
     ),
     countRows(
       db,

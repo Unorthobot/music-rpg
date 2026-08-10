@@ -7,3 +7,6 @@ export * from "./discovery";
 export * from "./events";
 export * from "./ops";
 export * from "./projections";
+export * from "./characters";
+export * from "./career-life";
+export * from "./studio";

@@ -7,3 +7,4 @@ export * from "./money";
 export * from "./numbers";
 export * from "./result";
 export * from "./slug";
+export * from "./studio";

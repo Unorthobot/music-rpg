@@ -24,7 +24,7 @@ async function main() {
   console.info(
     `[db] seeded via ${handle.driver}: ${result.worlds} world(s), ${result.scenes} scene(s), ` +
       `${result.archetypes} archetypes, ${result.traits} traits, ${result.questions} questions, ` +
-      `${result.candidates} candidate member(s)`,
+      `${result.candidates} candidate member(s), ${result.characters} character(s)`,
   );
 
   await handle.close();
