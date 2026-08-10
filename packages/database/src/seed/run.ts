@@ -1,4 +1,4 @@
-import { createDatabase, runMigrations } from "../client";
+import { assertSchemaReady, createDatabase, runMigrations } from "../client";
 import { seedDatabase } from "./index";
 
 /**
@@ -8,9 +8,16 @@ import { seedDatabase } from "./index";
  */
 async function main() {
   const handle = await createDatabase();
-  const applied = await runMigrations(handle);
-  if (applied.length > 0) {
-    console.info(`[db] applied migrations: ${applied.join(", ")}`);
+
+  // Seeding an embedded database implies bootstrapping it; against hosted
+  // Postgres the schema must already have been migrated by the deploy step.
+  if (handle.driver === "pglite") {
+    const applied = await runMigrations(handle);
+    if (applied.length > 0) {
+      console.info(`[db] applied migrations: ${applied.join(", ")}`);
+    }
+  } else {
+    await assertSchemaReady(handle);
   }
 
   const result = await seedDatabase(handle.db);

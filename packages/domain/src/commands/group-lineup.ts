@@ -37,8 +37,15 @@ export type LineupResult = {
   chemistry: ChemistryResult;
 };
 
-/** Recomputes chemistry from the current line-up and persists the score. */
-async function refreshLineup(tx: DbClient, groupId: string, now: Date): Promise<LineupResult> {
+/**
+ * Recomputes chemistry from the current line-up and persists the score.
+ * Exported so member authoring can reuse it inside its own transaction.
+ */
+export async function refreshGroupLineup(
+  tx: DbClient,
+  groupId: string,
+  now: Date,
+): Promise<LineupResult> {
   const rows = await tx
     .select({ membership: groupMemberships, artist: artists })
     .from(groupMemberships)
@@ -194,7 +201,7 @@ export async function addGroupMember(
       },
     });
 
-    return refreshLineup(tx, group.id, now);
+    return refreshGroupLineup(tx, group.id, now);
   });
 
   return ok(lineup);
@@ -212,6 +219,14 @@ export async function removeGroupMember(
   if (!group) return err(DomainErrors.controlledEntityMissing());
   if (career.status !== "ONBOARDING") {
     return err(DomainErrors.invalidCareerState("This line-up is already locked in."));
+  }
+
+  // The player's own founding artist is not a line-up slot they can vacate —
+  // removing themselves would leave a career with no musician in it.
+  if (career.playerArtistId && career.playerArtistId === input.artistId) {
+    return err(
+      DomainErrors.memberUnavailable("You can't remove yourself from your own group."),
+    );
   }
 
   const now = contextNow(ctx);
@@ -241,7 +256,7 @@ export async function removeGroupMember(
       payload: { during: "ONBOARDING" },
     });
 
-    return refreshLineup(tx, group.id, now);
+    return refreshGroupLineup(tx, group.id, now);
   });
 
   return ok(lineup);
@@ -262,7 +277,7 @@ export async function completeGroupLineup(
   const now = contextNow(ctx);
 
   const lineup = await ctx.db.transaction(async (tx) => {
-    const result = await refreshLineup(tx, group.id, now);
+    const result = await refreshGroupLineup(tx, group.id, now);
     if (result.members.length < gameConfig.group.minFoundingMembers) return null;
 
     await tx
@@ -281,8 +296,10 @@ export async function completeGroupLineup(
     );
   }
 
+  // Its own funnel step: `group_created` already fired when the group was made,
+  // and counting it twice would overstate creation.
   await track(ctx, {
-    name: "group_created",
+    name: "group_lineup_confirmed",
     userId: input.userId,
     careerId: career.id,
     properties: { groupId: group.id, members: lineup.members.length, chemistry: lineup.chemistry.score },

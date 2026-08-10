@@ -18,6 +18,7 @@ const STEP_ORDER: OnboardingState[] = [
   "NOT_STARTED",
   "CAREER_TYPE",
   "IDENTITY",
+  "FOUNDING_ARTIST",
   "SOUND_DISCOVERY",
   "MEMBERS",
   "REVEAL",

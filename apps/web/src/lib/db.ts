@@ -4,10 +4,15 @@ import { getDatabase, seedDatabase, worlds, type Database } from "@music-rpg/dat
 /**
  * Application database access.
  *
- * `getDatabase()` already runs migrations. On top of that, a fresh embedded
- * database is seeded once per process so `npm run dev` and the E2E suite work
- * from a clean checkout with no manual setup step. Seeding is idempotent and
- * skipped as soon as a world exists.
+ * Two different contracts, chosen by driver:
+ *
+ * - **Embedded (PGlite, local dev and tests).** The database is a directory this
+ *   process owns, so `getDatabase()` migrates it and we seed it once per process.
+ *   `npm run dev` works from a clean checkout with no setup step.
+ * - **Hosted Postgres.** The runtime never migrates and never seeds. Schema
+ *   changes belong to the deploy pipeline (`npm run db:migrate`), and content
+ *   seeding to a deliberate `npm run db:seed`; a process that finds an
+ *   out-of-date schema fails fast rather than racing another instance.
  */
 let seeding: Promise<void> | null = null;
 
@@ -19,6 +24,8 @@ async function ensureSeeded(db: Database): Promise<void> {
 
 export async function getAppDb(): Promise<Database> {
   const handle = await getDatabase();
+
+  if (handle.driver !== "pglite") return handle.db;
 
   if (!seeding) {
     seeding = ensureSeeded(handle.db).catch((error) => {

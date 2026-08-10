@@ -10,7 +10,14 @@ import type { EventActorType, EventVisibility } from "@music-rpg/shared";
 export const GameEventType = {
   CareerCreated: "career.created",
   CareerTypeSelected: "career.type_selected",
+  /** Any artist coming into existence: the player's own, or one they authored. */
+  ArtistCreated: "artist.created",
+  /** Retained alias — same stored value, kept so existing call sites read clearly. */
   SoloArtistCreated: "artist.created",
+  /** The career's player-owned artist was attached (solo or group founder). */
+  PlayerArtistAssigned: "career.player_artist_assigned",
+  /** A bandmate written by the player rather than recruited from the world. */
+  GroupMemberCreated: "group.member_created",
   ArtistIdentityEstablished: "artist.identity_established",
   ArtistIdentityTuned: "artist.identity_tuned",
   GroupCreated: "group.created",
@@ -31,7 +38,9 @@ export type GameEventTypeValue = (typeof GameEventType)[GameEventTypeKey];
 export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "career.created": "Career created",
   "career.type_selected": "Career type selected",
-  "artist.created": "Solo artist created",
+  "artist.created": "Artist created",
+  "career.player_artist_assigned": "Player artist assigned",
+  "group.member_created": "Group member created",
   "artist.identity_established": "Artist identity established",
   "artist.identity_tuned": "Artist identity tuned",
   "group.created": "Group created",

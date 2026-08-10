@@ -16,12 +16,18 @@ export default async function ProfilePage() {
   const { view } = await requireCareer();
   const entity = view.entity;
 
+  // Public addresses are world-scoped, because a stage name is only unique
+  // inside a world.
   const publicPath =
     entity?.type === "ARTIST"
-      ? `/artist/${entity.artist.slug}`
+      ? `/world/${view.world.slug}/artist/${entity.artist.slug}`
       : entity?.type === "GROUP"
-        ? `/group/${entity.group.slug}`
+        ? `/world/${view.world.slug}/group/${entity.group.slug}`
         : null;
+
+  const playerArtistPath = view.playerArtist
+    ? `/world/${view.world.slug}/artist/${view.playerArtist.artist.slug}`
+    : null;
 
   const isPublic =
     entity?.type === "ARTIST" ? entity.artist.isPublic : (entity?.group.isPublic ?? false);
@@ -55,6 +61,22 @@ export default async function ProfilePage() {
           </>
         ) : null}
       </Surface>
+
+      {playerArtistPath && playerArtistPath !== publicPath ? (
+        <Surface level={1} padded="lg" className="flex flex-col gap-3">
+          <Label>You, individually</Label>
+          <p className="text-sm text-ink-muted">
+            Your career controls {view.displayName}, but you are also{" "}
+            {view.playerArtist?.artist.stageName} — a musician in your own right, with your own page.
+          </p>
+          <Link
+            href={playerArtistPath}
+            className="text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+          >
+            {playerArtistPath}
+          </Link>
+        </Surface>
+      ) : null}
 
       <Surface level={1} padded="lg" className="flex flex-col gap-2">
         <Label>Account</Label>

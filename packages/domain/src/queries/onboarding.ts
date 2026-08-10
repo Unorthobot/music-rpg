@@ -31,6 +31,7 @@ export const ONBOARDING_ROUTES: Record<OnboardingState, string> = {
   NOT_STARTED: "/start",
   CAREER_TYPE: "/start",
   IDENTITY: "/start/identity",
+  FOUNDING_ARTIST: "/start/founder",
   SOUND_DISCOVERY: "/start/sound",
   MEMBERS: "/start/members",
   REVEAL: "/start/reveal",

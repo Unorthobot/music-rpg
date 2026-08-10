@@ -6,3 +6,4 @@ export * from "./group";
 export * from "./discovery";
 export * from "./events";
 export * from "./ops";
+export * from "./projections";

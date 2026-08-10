@@ -1,10 +1,12 @@
-import { getCandidateViews } from "@music-rpg/domain";
+import { getCandidateViews, roleLabel } from "@music-rpg/domain";
 import { computeChemistry } from "@music-rpg/simulation";
+import { gameConfig } from "@music-rpg/shared";
 import { Button, Label, Surface, Tag } from "@music-rpg/ui";
 import { getAppDb } from "@/lib/db";
 import { requireOnboardingStep } from "../guard";
 import { StepFrame } from "../step-frame";
 import { addMemberAction, confirmLineupAction, removeMemberAction } from "../actions";
+import { CreateMemberForm } from "./create-member-form";
 
 export const metadata = { title: "Choose your members" };
 
@@ -30,6 +32,7 @@ export default async function MembersPage({
 
   const chosen = group?.members ?? [];
   const chosenIds = new Set(chosen.map((member) => member.artist.id));
+  const full = chosen.length >= gameConfig.group.maxFoundingMembers;
 
   const chemistry = computeChemistry(
     chosen
@@ -39,11 +42,11 @@ export default async function MembersPage({
 
   return (
     <StepFrame
-      step={4}
-      totalSteps={4}
+      step={5}
+      totalSteps={5}
       eyebrow="Founding line-up"
       title="WHO'S IN THIS WITH YOU?"
-      intro="Pick between one and four. Talent is not the only thing that matters — how these people handle each other decides how long the group lasts."
+      intro="You're already in. Recruit from the scene or write somebody yourself — up to four in total. Talent is not the only thing that matters; how these people handle each other decides how long the group lasts."
       error={searchParams.error}
     >
       {chosen.length > 0 ? (
@@ -52,27 +55,41 @@ export default async function MembersPage({
           <p className="text-base text-ink">{chemistry.summary}</p>
 
           <ul className="flex flex-col gap-2">
-            {chosen.map((member) => (
-              <li
-                key={member.artist.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-line-subtle bg-surface-1 px-4 py-3"
-              >
-                <span className="flex flex-col min-w-0">
-                  <span className="text-base text-ink truncate">{member.artist.stageName}</span>
-                  <span className="text-xs text-ink-subtle">
-                    {member.membership.role.replace("_", " ").toLowerCase()}
-                    {member.membership.isFounder ? " · founding member" : ""}
+            {chosen.map((member) => {
+              const isYou = member.artist.id === career.playerArtistId;
+              return (
+                <li
+                  key={member.artist.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-line-subtle bg-surface-1 px-4 py-3"
+                >
+                  <span className="flex flex-col min-w-0">
+                    <span className="flex items-center gap-2">
+                      <span className="text-base text-ink truncate">
+                        {member.artist.stageName}
+                      </span>
+                      {isYou ? <Tag tone="ember">You</Tag> : null}
+                      {member.artist.authoredByCareerId && !isYou ? <Tag>Written by you</Tag> : null}
+                    </span>
+                    <span className="text-xs text-ink-subtle">
+                      {roleLabel(member.membership.role)}
+                      {member.membership.isFounder ? " · founding member" : ""}
+                    </span>
                   </span>
-                </span>
-                <form action={removeMemberAction}>
-                  <input type="hidden" name="careerId" value={career.id} />
-                  <input type="hidden" name="artistId" value={member.artist.id} />
-                  <Button type="submit" variant="ghost" size="sm">
-                    Remove
-                  </Button>
-                </form>
-              </li>
-            ))}
+
+                  {isYou ? (
+                    <span className="text-xs text-ink-subtle">Can&apos;t leave your own group</span>
+                  ) : (
+                    <form action={removeMemberAction}>
+                      <input type="hidden" name="careerId" value={career.id} />
+                      <input type="hidden" name="artistId" value={member.artist.id} />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Remove
+                      </Button>
+                    </form>
+                  )}
+                </li>
+              );
+            })}
           </ul>
 
           {chemistry.strengths.length > 0 || chemistry.tensions.length > 0 ? (
@@ -105,6 +122,14 @@ export default async function MembersPage({
           ) : null}
         </Surface>
       ) : null}
+
+      <div className="flex flex-col gap-3">
+        <Label>Write somebody</Label>
+        <p className="text-sm text-ink-muted">
+          Nobody in the scene fits? Make the person you actually hear in the group.
+        </p>
+        <CreateMemberForm careerId={career.id} disabled={full} />
+      </div>
 
       <div className="flex flex-col gap-3">
         <Label>Available in {view?.world.name ?? "the scene"}</Label>
@@ -140,7 +165,7 @@ export default async function MembersPage({
                 <form action={addMemberAction} className="self-center">
                   <input type="hidden" name="careerId" value={career.id} />
                   <input type="hidden" name="artistId" value={candidate.artist.id} />
-                  <Button type="submit" variant="secondary" size="sm">
+                  <Button type="submit" variant="secondary" size="sm" disabled={full}>
                     Add
                   </Button>
                 </form>

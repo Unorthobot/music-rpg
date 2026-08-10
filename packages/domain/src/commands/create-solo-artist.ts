@@ -109,6 +109,7 @@ export async function createSoloArtist(
         biography: biographyVerdict?.value ?? null,
         artistType: "PLAYER",
         status: "ACTIVE",
+        authoredByCareerId: career.id,
         isPublic: false,
       })
       .returning();
@@ -123,7 +124,7 @@ export async function createSoloArtist(
     await recordEvent(tx, {
       worldId: career.worldId,
       careerId: career.id,
-      eventType: GameEventType.SoloArtistCreated,
+      eventType: GameEventType.ArtistCreated,
       actorType: "USER",
       actorId: input.userId,
       targetType: "ARTIST",
@@ -131,7 +132,27 @@ export async function createSoloArtist(
       visibility: "PRIVATE",
       importance: 70,
       idempotencyKey: `artist:${artist.id}:created`,
-      payload: { stageName: artist.stageName, slug: artist.slug, origin: artist.origin },
+      payload: {
+        stageName: artist.stageName,
+        slug: artist.slug,
+        origin: artist.origin,
+        playerArtist: true,
+        authored: true,
+      },
+    });
+
+    await recordEvent(tx, {
+      worldId: career.worldId,
+      careerId: career.id,
+      eventType: GameEventType.PlayerArtistAssigned,
+      actorType: "USER",
+      actorId: input.userId,
+      targetType: "ARTIST",
+      targetId: artist.id,
+      visibility: "PRIVATE",
+      importance: 65,
+      idempotencyKey: `career:${career.id}:player_artist:${artist.id}`,
+      payload: { controlledEntityType: "ARTIST" },
     });
 
     const updatedCareer = await assignControlledEntity(tx, {
@@ -144,7 +165,13 @@ export async function createSoloArtist(
 
     const advanced = await tx
       .update(careers)
-      .set({ onboardingState: "SOUND_DISCOVERY", lastActiveAt: now, updatedAt: now })
+      .set({
+        // A solo career controls the same artist it *is*.
+        playerArtistId: artist.id,
+        onboardingState: "SOUND_DISCOVERY",
+        lastActiveAt: now,
+        updatedAt: now,
+      })
       .where(eq(careers.id, career.id))
       .returning();
 

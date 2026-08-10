@@ -136,6 +136,63 @@ export async function runMigrations(handle: DatabaseHandle): Promise<string[]> {
   return ran;
 }
 
+/** Ids of migrations that have not been applied to this database. */
+export async function pendingMigrations(handle: DatabaseHandle): Promise<string[]> {
+  const applied = new Set<string>();
+
+  try {
+    const result = await handle.db.execute(sql`SELECT id FROM _migrations`);
+    const rows: { id: string }[] = Array.isArray(result)
+      ? (result as { id: string }[])
+      : ((result as { rows?: { id: string }[] }).rows ?? []);
+    for (const row of rows) applied.add(row.id);
+  } catch {
+    // No ledger yet: everything is pending.
+    return migrations.map((migration) => migration.id);
+  }
+
+  return migrations.filter((migration) => !applied.has(migration.id)).map((migration) => migration.id);
+}
+
+export class SchemaNotReadyError extends Error {
+  constructor(readonly pending: string[]) {
+    super(
+      `Database schema is out of date — pending migrations: ${pending.join(", ")}. ` +
+        `Run "npm run db:migrate" as part of the deploy before starting the application.`,
+    );
+    this.name = "SchemaNotReadyError";
+  }
+}
+
+/**
+ * Fails fast when a hosted database has not been migrated.
+ *
+ * The application runtime never owns schema changes: two cold instances racing
+ * a migration on an incoming request is exactly the failure mode this prevents.
+ */
+export async function assertSchemaReady(handle: DatabaseHandle): Promise<void> {
+  const pending = await pendingMigrations(handle);
+  if (pending.length > 0) throw new SchemaNotReadyError(pending);
+}
+
+/**
+ * Whether this process is allowed to migrate on its own.
+ *
+ * Embedded PGlite is a development and test convenience — its "database" is a
+ * directory this process owns, so bootstrapping it automatically is correct.
+ * Hosted Postgres is shared infrastructure, so migration is a deploy step and
+ * the runtime only verifies. `DB_ALLOW_RUNTIME_MIGRATION=true` overrides for
+ * the rare case (a preview environment, a one-off script) that wants it.
+ */
+export function shouldBootstrapAtRuntime(
+  driver: DatabaseHandle["driver"],
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.DB_ALLOW_RUNTIME_MIGRATION === "true") return true;
+  if (env.DB_ALLOW_RUNTIME_MIGRATION === "false") return false;
+  return driver === "pglite";
+}
+
 declare global {
   // eslint-disable-next-line no-var
   var __musicRpgDb: Promise<DatabaseHandle> | undefined;
@@ -144,14 +201,27 @@ declare global {
 /**
  * Process-wide handle. Cached on `globalThis` so Next's dev server does not
  * open a new PGlite instance on every hot reload.
+ *
+ * Embedded databases migrate themselves here; hosted databases are verified and
+ * refused if a deploy forgot to migrate them.
  */
 export function getDatabase(): Promise<DatabaseHandle> {
   if (!globalThis.__musicRpgDb) {
     globalThis.__musicRpgDb = (async () => {
       const handle = await createDatabase();
-      await runMigrations(handle);
+
+      if (shouldBootstrapAtRuntime(handle.driver)) {
+        await runMigrations(handle);
+      } else {
+        await assertSchemaReady(handle);
+      }
+
       return handle;
-    })();
+    })().catch((error) => {
+      // Don't cache a poisoned handle: the next request should retry.
+      globalThis.__musicRpgDb = undefined;
+      throw error;
+    });
   }
   return globalThis.__musicRpgDb;
 }

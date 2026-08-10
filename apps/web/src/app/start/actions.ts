@@ -8,7 +8,9 @@ import {
   completeGroupLineup,
   completeSoundDiscovery,
   createCareer,
+  createFoundingArtist,
   createGroup,
+  createGroupMember,
   createSoloArtist,
   removeGroupMember,
   saveDiscoveryAnswer,
@@ -76,18 +78,55 @@ export async function saveIdentityAction(formData: FormData): Promise<void> {
       biography: String(formData.get("biography") ?? "") || null,
     });
     if (!result.ok) failTo("/start/identity", result.error.message);
-  } else {
-    const result = await createGroup(ctx, {
-      careerId,
-      userId: user.id,
-      name: String(formData.get("stageName") ?? ""),
-      creativeDirection: String(formData.get("creativeDirection") ?? "") || null,
-      biography: String(formData.get("biography") ?? "") || null,
-    });
-    if (!result.ok) failTo("/start/identity", result.error.message);
+    redirect("/start/sound");
   }
 
+  const result = await createGroup(ctx, {
+    careerId,
+    userId: user.id,
+    name: String(formData.get("stageName") ?? ""),
+    creativeDirection: String(formData.get("creativeDirection") ?? "") || null,
+    biography: String(formData.get("biography") ?? "") || null,
+  });
+  if (!result.ok) failTo("/start/identity", result.error.message);
+
+  // A group needs its player before it needs its sound.
+  redirect("/start/founder");
+}
+
+export async function saveFoundingArtistAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const ctx = await createCommandContext();
+
+  const result = await createFoundingArtist(ctx, {
+    careerId: String(formData.get("careerId") ?? ""),
+    userId: user.id,
+    stageName: String(formData.get("stageName") ?? ""),
+    origin: String(formData.get("origin") ?? "") || null,
+    role: (formData.get("role") ? String(formData.get("role")) : undefined) as GroupRole | undefined,
+  });
+  if (!result.ok) failTo("/start/founder", result.error.message);
+
   redirect("/start/sound");
+}
+
+export async function createMemberAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const ctx = await createCommandContext();
+
+  const result = await createGroupMember(ctx, {
+    careerId: String(formData.get("careerId") ?? ""),
+    userId: user.id,
+    stageName: String(formData.get("stageName") ?? ""),
+    role: String(formData.get("role") ?? "MULTI_ROLE") as GroupRole,
+    tendencyId: String(formData.get("tendencyId") ?? ""),
+    personalityId: String(formData.get("personalityId") ?? ""),
+    visualId: String(formData.get("visualId") ?? "") || null,
+    origin: String(formData.get("origin") ?? "") || null,
+  });
+  if (!result.ok) failTo("/start/members", result.error.message);
+
+  revalidatePath("/start/members");
 }
 
 export async function answerDiscoveryAction(formData: FormData): Promise<void> {

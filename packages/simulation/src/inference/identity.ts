@@ -11,12 +11,12 @@ import {
   type DiscoveryResponses,
   type PsychologyValues,
   type SkillValues,
-  type SoundDimension,
   type SoundProfileValues,
   type TraitKey,
 } from "@music-rpg/shared";
-import { archetypeByKey, archetypeCatalogue } from "../content/archetypes";
+import { archetypeByKey } from "../content/archetypes";
 import { describeSound } from "../describe";
+import { selectArchetype } from "./archetype";
 
 /**
  * Deterministic Sound Discovery inference.
@@ -154,25 +154,7 @@ export function inferIdentity({ questions, responses }: InferIdentityInput): Inf
 
   // Archetype: direct evidence from answers, plus how closely the resulting
   // Sound DNA already resembles each archetype's bias.
-  const scored = archetypeCatalogue.map((definition) => {
-    const biasAxes = Object.entries(definition.soundBias) as [SoundDimension, number][];
-    const affinity =
-      biasAxes.length === 0
-        ? 0
-        : biasAxes.reduce((total, [axis, bias]) => total + bias * sound[axis], 0) / biasAxes.length;
-    return {
-      key: definition.key,
-      total: archetypeScores[definition.key] + affinity * 6,
-    };
-  });
-
-  const best = scored.reduce((leader, entry) => {
-    if (entry.total > leader.total) return entry;
-    // Deterministic tie-break: catalogue order.
-    return leader;
-  }, scored[0]!);
-
-  const archetype = best.key;
+  const archetype = selectArchetype(sound, archetypeScores);
   const archetypeDefinition = archetypeByKey[archetype];
 
   const skills = emptySkills();

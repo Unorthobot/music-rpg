@@ -44,6 +44,16 @@ export async function completeCareerOnboarding(
   if (!career.controlledEntityId || !career.controlledEntityType) {
     return err(DomainErrors.controlledEntityMissing());
   }
+  /*
+   * Every career belongs to a musician, including group careers: without a
+   * player artist there is nobody for the player to be when the group changes
+   * shape later.
+   */
+  if (!career.playerArtistId) {
+    return err(
+      DomainErrors.controlledEntityMissing("This career doesn't have your own artist yet."),
+    );
+  }
 
   const session = await loadDiscoverySession(ctx.db, career.id);
   if (!session || session.status !== "COMPLETED") {
@@ -108,6 +118,7 @@ export async function completeCareerOnboarding(
       payload: {
         controlledEntityType: career.controlledEntityType,
         controlledEntityId: career.controlledEntityId,
+        playerArtistId: career.playerArtistId,
       },
     });
 

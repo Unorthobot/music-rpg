@@ -64,11 +64,19 @@ export type ControlledEntityView =
       soundSummary: string | null;
     };
 
+export type ArtistDetail = Extract<ControlledEntityView, { type: "ARTIST" }>;
+
 export type CareerView = {
   career: CareerRow;
   world: WorldRow;
   scene: SceneRow | null;
   entity: ControlledEntityView | null;
+  /**
+   * The player's own musician. For a solo career this is the controlled entity;
+   * for a group career it is their founding member inside the group. Screens
+   * that need to say "you" read this, never the members list.
+   */
+  playerArtist: ArtistDetail | null;
   archetype: ArchetypeDefinition | null;
   /** Stage name or group name — what the player calls themselves. */
   displayName: string;
@@ -247,11 +255,24 @@ export async function getCareerView(db: Database, careerId: string): Promise<Car
   const archetypeKey: ArchetypeKey | null =
     entity?.type === "ARTIST" ? entity.artist.archetype : (entity?.group.archetype ?? null);
 
+  let playerArtist: ArtistDetail | null = null;
+  if (career.playerArtistId) {
+    if (entity?.type === "ARTIST" && entity.artist.id === career.playerArtistId) {
+      // Solo: the controlled entity and the player's artist are the same row.
+      playerArtist = entity;
+    } else {
+      const rows = await db.select().from(artists).where(eq(artists.id, career.playerArtistId)).limit(1);
+      const artist = rows[0];
+      if (artist) playerArtist = await loadArtistDetail(db, artist);
+    }
+  }
+
   return {
     career,
     world,
     scene: sceneRows[0] ?? null,
     entity,
+    playerArtist,
     archetype: archetypeKey ? (archetypeByKey[archetypeKey] ?? null) : null,
     displayName:
       entity?.type === "ARTIST"

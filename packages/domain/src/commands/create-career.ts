@@ -1,5 +1,12 @@
 import { and, eq } from "drizzle-orm";
-import { careers, scenes, users, worlds, type CareerRow } from "@music-rpg/database";
+import {
+  careerAudience,
+  careers,
+  scenes,
+  users,
+  worlds,
+  type CareerRow,
+} from "@music-rpg/database";
 import { GameEventType, recordEvent } from "@music-rpg/events";
 import { err, gameConfig, ids, ok, type Result } from "@music-rpg/shared";
 import { contextNow, track, type CommandContext } from "../context";
@@ -90,6 +97,10 @@ export async function createCareer(
 
     const career = inserted[0];
     if (!career) return null;
+
+    // The audience projection exists from the first moment of the career, so
+    // every fan count the player ever sees is a persisted value.
+    await tx.insert(careerAudience).values({ careerId: career.id }).onConflictDoNothing();
 
     await tx
       .update(users)

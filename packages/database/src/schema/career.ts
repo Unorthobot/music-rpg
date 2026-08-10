@@ -44,6 +44,14 @@ export const careers = pgTable(
      */
     controlledEntityType: text("controlled_entity_type").$type<ControlledEntityType>(),
     controlledEntityId: text("controlled_entity_id"),
+    /**
+     * The artist the player *is*, which is not always the entity they control.
+     * Solo careers point here and at `controlled_entity_id` identically; group
+     * careers control the Group while this stays on the player's founding
+     * member — so individual fame, a member leaving, or the group dissolving
+     * never leaves the player without a body.
+     */
+    playerArtistId: text("player_artist_id"),
     onboardingState: text("onboarding_state")
       .$type<OnboardingState>()
       .notNull()

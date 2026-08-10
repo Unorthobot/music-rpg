@@ -44,6 +44,12 @@ export const artists = pgTable(
     /** Palette / imagery direction. Kept as JSON until asset generation exists. */
     visualIdentity: jsonb("visual_identity").$type<Record<string, unknown>>(),
     currentGroupId: text("current_group_id"),
+    /**
+     * Set when a player wrote this artist — their own founding member, or a
+     * bandmate they created rather than recruited from the world. Keeps
+     * authored people distinguishable from seeded NPCs permanently.
+     */
+    authoredByCareerId: text("authored_by_career_id"),
     /** Role an NPC candidate would take in a group. Null for most player artists. */
     preferredRole: text("preferred_role").$type<GroupRole>(),
     fame: integer("fame").notNull().default(0),

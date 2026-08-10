@@ -55,7 +55,8 @@ test.describe("world control", () => {
 
     // The history that produced this career.
     await expect(page.getByText("Career created")).toBeVisible();
-    await expect(page.getByText("Solo artist created")).toBeVisible();
+    await expect(page.getByText("Artist created").first()).toBeVisible();
+    await expect(page.getByText("Player artist assigned")).toBeVisible();
     await expect(page.getByText("Sound discovery completed")).toBeVisible();
     await expect(page.getByText("Artist identity established")).toBeVisible();
     await expect(page.getByText("Career entered The Underground")).toBeVisible();

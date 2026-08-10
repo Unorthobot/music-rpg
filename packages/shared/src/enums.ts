@@ -81,6 +81,8 @@ export const ONBOARDING_STATES = [
   "NOT_STARTED",
   "CAREER_TYPE",
   "IDENTITY",
+  /** Group careers only: the player authors their own founding member. */
+  "FOUNDING_ARTIST",
   "SOUND_DISCOVERY",
   "MEMBERS",
   "REVEAL",

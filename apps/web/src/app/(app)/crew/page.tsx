@@ -34,19 +34,34 @@ export default async function CrewPage() {
             everyone else who ends up around it.
           </p>
           <ul className="flex flex-col gap-2">
-            {entity.members.map((member) => (
-              <li key={member.artist.id}>
-                <RelationshipState
-                  name={member.artist.stageName}
-                  role={`${roleLabel(member.membership.role)}${
-                    member.membership.isFounder ? " · founding member" : ""
-                  }`}
-                  standing={member.membership.satisfaction >= 65 ? "Committed" : "Settling in"}
-                  tone={member.membership.satisfaction >= 65 ? "positive" : "neutral"}
-                  note={member.psychology ? describePersonality(member.psychology) : undefined}
-                />
-              </li>
-            ))}
+            {entity.members.map((member) => {
+              const isYou = member.artist.id === view.career.playerArtistId;
+              return (
+                <li key={member.artist.id}>
+                  <RelationshipState
+                    name={isYou ? `${member.artist.stageName} (you)` : member.artist.stageName}
+                    role={`${roleLabel(member.membership.role)}${
+                      member.membership.isFounder ? " · founding member" : ""
+                    }${member.artist.authoredByCareerId && !isYou ? " · written by you" : ""}`}
+                    standing={
+                      isYou
+                        ? "You"
+                        : member.membership.satisfaction >= 65
+                          ? "Committed"
+                          : "Settling in"
+                    }
+                    tone={isYou || member.membership.satisfaction >= 65 ? "positive" : "neutral"}
+                    note={
+                      isYou
+                        ? "Your own artist. Individually persistent — if this group ends, you don't."
+                        : member.psychology
+                          ? describePersonality(member.psychology)
+                          : undefined
+                    }
+                  />
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

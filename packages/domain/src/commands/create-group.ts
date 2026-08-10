@@ -128,7 +128,9 @@ export async function createGroup(
 
     const advanced = await tx
       .update(careers)
-      .set({ onboardingState: "SOUND_DISCOVERY", lastActiveAt: now, updatedAt: now })
+      // Next the player authors themselves as a member of this group; Sound
+      // Discovery comes after, once there is somebody to attach it to.
+      .set({ onboardingState: "FOUNDING_ARTIST", lastActiveAt: now, updatedAt: now })
       .where(eq(careers.id, career.id))
       .returning();
 

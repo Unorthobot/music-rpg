@@ -50,6 +50,12 @@ export default async function WorldControlCareerDetail({
             ["Status", `${view.career.status} · ${view.career.onboardingState}`],
             ["Act", view.career.careerAct],
             ["Controls", `${view.career.controlledEntityType ?? "—"} ${view.career.controlledEntityId ?? ""}`],
+            [
+              "Player artist",
+              view.playerArtist
+                ? `${view.playerArtist.artist.stageName} (${view.career.playerArtistId})`
+                : "—",
+            ],
             ["Money", formatMoney(view.career.moneyBalance)],
             [
               "Metrics",
@@ -133,6 +139,10 @@ export default async function WorldControlCareerDetail({
           <ul className="text-xs font-mono text-ink-muted flex flex-col gap-1">
             {entity.members.map((member) => (
               <li key={member.artist.id}>
+                {member.artist.id === view.career.playerArtistId ? "[player] " : ""}
+                {member.artist.authoredByCareerId && member.artist.id !== view.career.playerArtistId
+                  ? "[authored] "
+                  : ""}
                 {member.artist.stageName} — {member.membership.role} · influence{" "}
                 {member.membership.influence} · satisfaction {member.membership.satisfaction} ·
                 commitment {member.membership.commitment} · solo ambition{" "}

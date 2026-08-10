@@ -76,10 +76,17 @@ The app runs on <http://localhost:3100>. With no `DATABASE_URL`, it creates and 
 database in `.pglite/dev` and seeds it on first boot — Johannesburg, its scenes, archetypes, traits,
 Sound Discovery questions and six candidate members.
 
+**Hosted deployments migrate deliberately.** The runtime never changes a hosted schema: it verifies
+that every migration has been applied and refuses to start otherwise. Run `npm run db:migrate` as a
+deploy step (`DB_ALLOW_RUNTIME_MIGRATION=true` overrides, for preview environments that want the
+embedded behaviour).
+
 | Command                | What it does                                                   |
 | ---------------------- | -------------------------------------------------------------- |
 | `npm run dev`          | Next dev server on port 3100                                    |
-| `npm run db:seed`      | Migrate + seed (idempotent)                                     |
+| `npm run db:migrate`   | Apply pending migrations — the deploy pipeline's schema step    |
+| `npm run db:migrate:check` | Report pending migrations without applying (pre-deploy gate) |
+| `npm run db:seed`      | Seed content (idempotent; migrates only embedded databases)     |
 | `npm run db:reset`     | Drop everything and rebuild (refuses non-local `DATABASE_URL`)  |
 | `npm run typecheck`    | Typecheck packages and the app                                  |
 | `npm test`             | Unit, domain and integration tests against embedded Postgres    |
@@ -104,11 +111,17 @@ Crew) plus Search, Messages, Notifications, Calendar, Profile and Settings — a
 intentional empty states. Design tokens, component system, typed domain errors, command layer,
 canonical events, analytics port, job port, storage port.
 
-**Identity.** Landing → auth → start career → solo or group → identity → Sound Discovery → reveal
-(with Tune It) → ENTER THE UNDERGROUND → Home. Discovery questions are seeded configuration; the
-inference engine turns answers into Sound DNA, starting skills, psychology, an archetype and up to
-three traits, deterministically. Onboarding is resumable to the exact step across devices, and every
-command is idempotent under retries.
+**Identity.** Landing → auth → start career → solo or group → identity → (group: your founding
+member) → Sound Discovery → (group: line-up) → reveal (with Tune It) → ENTER THE UNDERGROUND → Home.
+Discovery questions are seeded configuration; the inference engine turns answers into Sound DNA,
+starting skills, psychology, an archetype and up to three traits, deterministically. Onboarding is
+resumable to the exact step across devices, and every command is idempotent under retries.
+
+**Every career belongs to a musician.** A solo career controls its artist; a group career controls
+the Group *and* carries `playerArtistId` — the player's own founding member, individually
+persistent. Bandmates can be recruited from the world or written by the player (name, role, creative
+tendency, personality, look, everything else derived). Public identity is world-scoped:
+`/world/[worldSlug]/artist/[slug]`, because a stage name is only unique inside a world.
 
 Starting state is real persisted state: `R5,000`, 0 fans, 0 Fame, 0 Respect, 0 Heat, 0 Legacy, no
 catalogue, no battles, Act I.

@@ -1,8 +1,5 @@
 import { eq } from "drizzle-orm";
 import {
-  artistPsychology,
-  artistSkills,
-  artistTraits,
   artists,
   careers,
   groups,
@@ -23,6 +20,11 @@ import { inferIdentity, type InferredIdentity } from "@music-rpg/simulation";
 import { contextNow, track, type CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
 import { loadOwnedCareer } from "../internal/career";
+import {
+  replaceArtistTraits,
+  writeArtistPsychology,
+  writeArtistSkills,
+} from "../internal/artist-writes";
 import {
   loadDiscoveryQuestions,
   loadDiscoverySession,
@@ -225,51 +227,11 @@ export async function completeSoundDiscovery(
         })
         .where(eq(artists.id, entityId));
 
-      await tx
-        .update(artistSkills)
-        .set({
-          lyricism: identity.skills.lyricism,
-          flow: identity.skills.flow,
-          melody: identity.skills.melody,
-          storytelling: identity.skills.storytelling,
-          performance: identity.skills.performance,
-          production: identity.skills.production,
-          experimentation: identity.skills.experimentation,
-          versatility: identity.skills.versatility,
-          battleIq: identity.skills.battleIQ,
-          updatedAt: now,
-        })
-        .where(eq(artistSkills.artistId, entityId));
-
-      await tx
-        .update(artistPsychology)
-        .set({
-          confidence: identity.psychology.confidence,
-          discipline: identity.psychology.discipline,
-          ambition: identity.psychology.ambition,
-          resilience: identity.psychology.resilience,
-          ego: identity.psychology.ego,
-          patience: identity.psychology.patience,
-          adaptability: identity.psychology.adaptability,
-          riskTolerance: identity.psychology.riskTolerance,
-          competitiveness: identity.psychology.competitiveness,
-          updatedAt: now,
-        })
-        .where(eq(artistPsychology.artistId, entityId));
-
+      await writeArtistSkills(tx, entityId, identity.skills, now);
+      await writeArtistPsychology(tx, entityId, identity.psychology, now);
       // Traits are replaced wholesale: discovery is the sole source of the
       // starting set, and re-running it must not accumulate duplicates.
-      await tx.delete(artistTraits).where(eq(artistTraits.artistId, entityId));
-      for (const trait of identity.traits) {
-        await tx.insert(artistTraits).values({
-          id: ids.trait(),
-          artistId: entityId,
-          traitKey: trait.key,
-          source: "DISCOVERY",
-          strength: trait.strength,
-          acquiredAt: now,
-        });
-      }
+      await replaceArtistTraits(tx, entityId, identity.traits, "DISCOVERY", now);
 
       await recordEvent(tx, {
         worldId: career.worldId,
@@ -297,6 +259,56 @@ export async function completeSoundDiscovery(
           updatedAt: now,
         })
         .where(eq(groups.id, entityId));
+
+      /*
+       * These were the player's answers, so they describe the player's own
+       * musician as much as they describe the group. The founding artist gets
+       * the derived craft, temperament, traits and their own Sound DNA — which
+       * is what makes individual fame, a solo turn or a break-up meaningful
+       * later, rather than the player being a faceless owner of a band.
+       */
+      if (career.playerArtistId) {
+        await tx
+          .update(artists)
+          .set({
+            archetype: identity.archetype,
+            creativePhilosophy: identity.creativePhilosophy,
+            updatedAt: now,
+          })
+          .where(eq(artists.id, career.playerArtistId));
+
+        await writeArtistSkills(tx, career.playerArtistId, identity.skills, now);
+        await writeArtistPsychology(tx, career.playerArtistId, identity.psychology, now);
+        await replaceArtistTraits(tx, career.playerArtistId, identity.traits, "DISCOVERY", now);
+
+        await writeSoundProfile(tx, {
+          ownerType: "ARTIST",
+          ownerId: career.playerArtistId,
+          values: identity.sound,
+          summary: identity.soundSummary,
+          derivedFrom: { ...identity.provenance, via: "GROUP_DISCOVERY" },
+          now,
+        });
+
+        await recordEvent(tx, {
+          worldId: career.worldId,
+          careerId: career.id,
+          eventType: GameEventType.ArtistIdentityEstablished,
+          actorType: "ARTIST",
+          actorId: career.playerArtistId,
+          targetType: "ARTIST",
+          targetId: career.playerArtistId,
+          visibility: "PRIVATE",
+          importance: 75,
+          idempotencyKey: `artist:${career.playerArtistId}:identity_established`,
+          payload: {
+            archetype: identity.archetype,
+            traits: identity.traits.map((trait) => trait.key),
+            soundSummary: identity.soundSummary,
+            via: "GROUP_DISCOVERY",
+          },
+        });
+      }
 
       await recordEvent(tx, {
         worldId: career.worldId,

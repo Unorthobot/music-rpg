@@ -1,5 +1,6 @@
 import { formatCount, formatMoney } from "@music-rpg/shared";
 import { listCareerEvents, gameEventLabels } from "@music-rpg/events";
+import { getCareerCounters } from "@music-rpg/domain";
 import {
   CareerMetric,
   EmptyState,
@@ -50,7 +51,12 @@ export default async function HomePage() {
   }
 
   const db = await getAppDb();
-  const events = await listCareerEvents(db, view.career.id, 6);
+  const [events, counters] = await Promise.all([
+    listCareerEvents(db, view.career.id, 6),
+    // Every counter below is read from a table. They are zero because the
+    // simulation says zero, not because this file says zero.
+    getCareerCounters(db, view.career),
+  ]);
   const recent = [...events].reverse();
 
   const context = (
@@ -103,8 +109,8 @@ export default async function HomePage() {
         />
         <CareerMetric
           label="Fans"
-          value={formatCount(0)}
-          descriptor="Nobody yet."
+          value={formatCount(counters.fans)}
+          descriptor={counters.fans === 0 ? "Nobody yet." : "People who came back."}
           tone="neutral"
         />
         <CareerMetric label="Fame" value={String(view.career.fame)} descriptor="Unknown." tone="fame" />
@@ -126,11 +132,16 @@ export default async function HomePage() {
         />
         <CareerMetric
           label="Catalogue"
-          value="0"
-          descriptor="No releases."
+          value={formatCount(counters.catalogue)}
+          descriptor={counters.releases === 0 ? "No releases." : `${counters.releases} released.`}
           tone="neutral"
         />
-        <CareerMetric label="Battles" value="0" descriptor="Untested." tone="neutral" />
+        <CareerMetric
+          label="Battles"
+          value={formatCount(counters.battles)}
+          descriptor={counters.battles === 0 ? "Untested." : "On the record."}
+          tone="neutral"
+        />
       </section>
 
       <EmptyState

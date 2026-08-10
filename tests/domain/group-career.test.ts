@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { artists, eq, groupMemberships, groups, type UserRow } from "@music-rpg/database";
+import {
+  artists,
+  eq,
+  groupMemberships,
+  groups,
+  soundProfiles,
+  type UserRow,
+} from "@music-rpg/database";
 import { GameEventType, listCareerEvents } from "@music-rpg/events";
 import {
   addGroupMember,
@@ -7,10 +14,13 @@ import {
   completeGroupLineup,
   completeSoundDiscovery,
   createCareer,
+  createFoundingArtist,
   createGroup,
+  createGroupMember,
   getCandidateViews,
   getCareerView,
   loadDiscoveryQuestions,
+  removeGroupMember,
   saveDiscoveryAnswer,
   selectCareerType,
 } from "@music-rpg/domain";
@@ -32,6 +42,7 @@ describe("group career", () => {
   let user: UserRow;
   let careerId: string;
   let groupId: string;
+  let playerArtistId: string;
 
   beforeAll(async () => {
     test = await createTestContext();
@@ -62,7 +73,65 @@ describe("group career", () => {
     expect(result.group.status).toBe("FORMING");
     expect(result.career.controlledEntityType).toBe("GROUP");
     expect(result.career.controlledEntityId).toBe(groupId);
+    // The player authors themselves before the group gets a sound.
+    expect(result.career.onboardingState).toBe("FOUNDING_ARTIST");
+  });
+
+  it("refuses to finish onboarding before the player exists in the group", async () => {
+    const result = await completeCareerOnboarding(test.ctx, { careerId, userId: user.id });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("CONTROLLED_ENTITY_MISSING");
+  });
+
+  it("creates the player's own founding artist inside the group", async () => {
+    const result = unwrap(
+      await createFoundingArtist(test.ctx, {
+        careerId,
+        userId: user.id,
+        stageName: "KXMO",
+        origin: "Braamfontein",
+        role: "LEAD_MC",
+      }),
+    );
+
+    playerArtistId = result.artist.id;
+
+    expect(result.artist.artistType).toBe("PLAYER");
+    expect(result.artist.currentGroupId).toBe(groupId);
+    expect(result.artist.authoredByCareerId).toBe(careerId);
+    // The career still controls the group; the player is a person inside it.
+    expect(result.career.controlledEntityType).toBe("GROUP");
+    expect(result.career.controlledEntityId).toBe(groupId);
+    expect(result.career.playerArtistId).toBe(playerArtistId);
     expect(result.career.onboardingState).toBe("SOUND_DISCOVERY");
+
+    const [membership] = await test.handle.db
+      .select()
+      .from(groupMemberships)
+      .where(eq(groupMemberships.artistId, playerArtistId));
+
+    expect(membership?.isFounder).toBe(true);
+    expect(membership?.role).toBe("LEAD_MC");
+  });
+
+  it("renames rather than duplicating the founding artist on resume", async () => {
+    const again = unwrap(
+      await createFoundingArtist(test.ctx, {
+        careerId,
+        userId: user.id,
+        stageName: "KXMO",
+        role: "LEAD_MC",
+      }),
+    );
+
+    expect(again.created).toBe(false);
+    expect(again.artist.id).toBe(playerArtistId);
+
+    const players = (await test.handle.db.select().from(artists)).filter(
+      (row) => row.artistType === "PLAYER",
+    );
+    expect(players).toHaveLength(1);
   });
 
   it("asks group-specific discovery questions", async () => {
@@ -97,6 +166,66 @@ describe("group career", () => {
     expect(view.entity?.type).toBe("GROUP");
     expect(view.entity?.soundSummary).toBe(identity.soundSummary);
     expect(view.career.onboardingState).toBe("MEMBERS");
+
+    // The player's own artist gets the identity too: these were their answers,
+    // so individual craft and temperament are real from the start.
+    expect(view.playerArtist).not.toBeNull();
+    expect(view.playerArtist!.artist.archetype).toBe(identity.archetype);
+    expect(view.playerArtist!.skills.production).toBe(identity.skills.production);
+    expect(view.playerArtist!.psychology.ambition).toBe(identity.psychology.ambition);
+    expect(view.playerArtist!.traits.length).toBe(identity.traits.length);
+
+    const profiles = await test.handle.db
+      .select()
+      .from(soundProfiles)
+      .where(eq(soundProfiles.ownerId, playerArtistId));
+    expect(profiles[0]?.summary).toBe(identity.soundSummary);
+  });
+
+  it("lets the player write a bandmate instead of recruiting one", async () => {
+    const result = unwrap(
+      await createGroupMember(test.ctx, {
+        careerId,
+        userId: user.id,
+        stageName: "MA-B",
+        role: "PRODUCER",
+        tendencyId: "experimental",
+        personalityId: "volatile",
+        visualId: "monochrome",
+      }),
+    );
+
+    const authored = result.artist;
+
+    expect(authored.artistType).toBe("CORE_NPC");
+    expect(authored.authoredByCareerId).toBe(careerId);
+    expect(authored.currentGroupId).toBe(groupId);
+    expect(authored.archetype).toBeTruthy();
+    expect(result.members.map((member) => member.artist.id)).toContain(authored.id);
+
+    // Derived, deterministic, and never stronger than the player can start.
+    const [skills] = await test.handle.db
+      .select()
+      .from(artists)
+      .where(eq(artists.id, authored.id));
+    expect(skills).toBeTruthy();
+
+    const [profile] = await test.handle.db
+      .select()
+      .from(soundProfiles)
+      .where(eq(soundProfiles.ownerId, authored.id));
+    expect(profile?.summary).toBeTruthy();
+  });
+
+  it("refuses to let the player remove themselves from their own group", async () => {
+    const result = await removeGroupMember(test.ctx, {
+      careerId,
+      userId: user.id,
+      artistId: playerArtistId,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe("MEMBER_UNAVAILABLE");
   });
 
   it("shows candidates qualitatively, never as raw numbers", async () => {
@@ -113,46 +242,42 @@ describe("group career", () => {
     }
   });
 
-  it("adds members as real artists and recomputes chemistry", async () => {
+  it("recruits a world NPC alongside the player and the authored member", async () => {
     const view = (await getCareerView(test.handle.db, careerId))!;
     const candidates = await getCandidateViews(test.handle.db, view.world.id, groupId);
 
-    const first = candidates[0]!.artist;
-    const second = candidates[1]!.artist;
+    const recruit = candidates[0]!.artist;
 
-    const afterFirst = unwrap(
-      await addGroupMember(test.ctx, { careerId, userId: user.id, artistId: first.id }),
+    const lineup = unwrap(
+      await addGroupMember(test.ctx, { careerId, userId: user.id, artistId: recruit.id }),
     );
-    expect(afterFirst.members).toHaveLength(1);
-    expect(afterFirst.members[0]!.membership.isFounder).toBe(true);
 
-    const afterSecond = unwrap(
-      await addGroupMember(test.ctx, { careerId, userId: user.id, artistId: second.id }),
-    );
-    expect(afterSecond.members).toHaveLength(2);
-    expect(afterSecond.chemistry.score).toBeGreaterThanOrEqual(0);
-    expect(afterSecond.chemistry.summary).toBeTruthy();
+    // Player + authored member + recruit.
+    expect(lineup.members).toHaveLength(3);
+    expect(lineup.members[0]!.membership.isFounder).toBe(true);
+    expect(lineup.members[0]!.artist.id).toBe(playerArtistId);
+    expect(lineup.chemistry.summary).toBeTruthy();
 
-    const [artistRow] = await test.handle.db.select().from(artists).where(eq(artists.id, first.id));
+    const [artistRow] = await test.handle.db.select().from(artists).where(eq(artists.id, recruit.id));
     expect(artistRow?.currentGroupId).toBe(groupId);
   });
 
   it("does not add the same member twice", async () => {
     const view = (await getCareerView(test.handle.db, careerId))!;
     const candidates = await getCandidateViews(test.handle.db, view.world.id, groupId);
-    const first = candidates.find((candidate) => candidate.membership)!.artist;
+    const alreadyIn = candidates.find((candidate) => candidate.membership)!.artist;
 
     const result = unwrap(
-      await addGroupMember(test.ctx, { careerId, userId: user.id, artistId: first.id }),
+      await addGroupMember(test.ctx, { careerId, userId: user.id, artistId: alreadyIn.id }),
     );
 
-    expect(result.members).toHaveLength(2);
+    expect(result.members).toHaveLength(3);
 
     const rows = await test.handle.db
       .select()
       .from(groupMemberships)
       .where(eq(groupMemberships.groupId, groupId));
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
   });
 
   it("refuses a member who already belongs to another group", async () => {
@@ -209,7 +334,10 @@ describe("group career", () => {
     expect(types).toContain(GameEventType.ControlledEntityAssigned);
     expect(types).toContain(GameEventType.CareerEnteredUnderground);
 
-    expect(types.filter((type) => type === GameEventType.GroupMemberAdded)).toHaveLength(2);
+    // Player founder, authored member, recruited NPC.
+    expect(types.filter((type) => type === GameEventType.GroupMemberAdded)).toHaveLength(3);
+    expect(types).toContain(GameEventType.PlayerArtistAssigned);
+    expect(types).toContain(GameEventType.GroupMemberCreated);
   });
 
   it("keeps group membership distinct from wider crew", async () => {

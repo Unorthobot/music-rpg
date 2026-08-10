@@ -12,6 +12,8 @@
     "start": "npm run start --workspace @music-rpg/web",
     "lint": "npm run lint --workspace @music-rpg/web",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
+    "db:migrate": "tsx packages/database/src/seed/migrate.ts",
+    "db:migrate:check": "tsx packages/database/src/seed/migrate.ts --check",
     "db:seed": "tsx packages/database/src/seed/run.ts",
     "db:reset": "tsx packages/database/src/seed/reset.ts",
     "test": "vitest run",

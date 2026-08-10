@@ -155,17 +155,26 @@ export default async function RevealPage({
           <Label>The line-up{chemistry ? ` — chemistry ${describeStat(chemistry.score)}` : ""}</Label>
           {chemistry ? <p className="text-sm text-ink-muted">{chemistry.summary}</p> : null}
           <ul className="flex flex-col gap-2">
-            {view.entity.members.map((member) => (
-              <li
-                key={member.artist.id}
-                className="flex items-center justify-between gap-3 rounded-md border border-line-subtle bg-surface-2 px-4 py-3"
-              >
-                <span className="text-base text-ink">{member.artist.stageName}</span>
-                <span className="text-xs text-ink-subtle uppercase tracking-label">
-                  {member.membership.role.replace("_", " ")}
-                </span>
-              </li>
-            ))}
+            {view.entity.members.map((member) => {
+              const isYou = member.artist.id === career.playerArtistId;
+              return (
+                <li
+                  key={member.artist.id}
+                  className={`flex items-center justify-between gap-3 rounded-md border px-4 py-3 ${
+                    isYou ? "border-ember-line bg-ember-soft" : "border-line-subtle bg-surface-2"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-base text-ink truncate">{member.artist.stageName}</span>
+                    {isYou ? <Tag tone="ember">You</Tag> : null}
+                    {member.artist.authoredByCareerId && !isYou ? <Tag>Written by you</Tag> : null}
+                  </span>
+                  <span className="text-xs text-ink-subtle uppercase tracking-label">
+                    {member.membership.role.replace("_", " ")}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
