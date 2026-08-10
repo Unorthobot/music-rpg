@@ -5,6 +5,7 @@ export * from "./enums";
 export * from "./ids";
 export * from "./money";
 export * from "./numbers";
+export * from "./releases";
 export * from "./result";
 export * from "./slug";
 export * from "./studio";

@@ -50,6 +50,13 @@ export const tracks = pgTable(
     status: text("status").$type<TrackStatus>().notNull().default("IDEA"),
     currentMasterVersionId: text("current_master_version_id"),
     sessionId: text("session_id"),
+    /** The release that put it out. Null until one does. */
+    releaseId: text("release_id"),
+    /**
+     * Deciding not to release something is a decision, not an absence — later
+     * systems will care that this work was held back deliberately.
+     */
+    keptPrivateAt: timestamp("kept_private_at", { withTimezone: true }),
     releasedAt: timestamp("released_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

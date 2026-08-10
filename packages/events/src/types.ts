@@ -56,6 +56,15 @@ export const GameEventType = {
   TrackRenamed: "track.renamed",
   TrackSavedToCatalogue: "track.saved_to_catalogue",
   CreativeSessionCompleted: "creative_session.completed",
+
+  /* --- M4: Releases ---------------------------------------------------- */
+  TrackKeptPrivate: "track.kept_private",
+  ReleasePlanned: "release.planned",
+  ReleaseFormatChosen: "release.format_chosen",
+  ReleaseStrategySet: "release.strategy_set",
+  ReleaseScheduled: "release.scheduled",
+  ReleaseCancelled: "release.cancelled",
+  ReleasePublished: "release.published",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -104,6 +113,14 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "track.renamed": "Track renamed",
   "track.saved_to_catalogue": "Track saved to catalogue",
   "creative_session.completed": "Studio session completed",
+
+  "track.kept_private": "Track kept private",
+  "release.planned": "Release planned",
+  "release.format_chosen": "Release format chosen",
+  "release.strategy_set": "Release strategy set",
+  "release.scheduled": "Release scheduled",
+  "release.cancelled": "Release cancelled",
+  "release.published": "Released",
 };
 
 export type RecordEventInput = {

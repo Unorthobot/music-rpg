@@ -50,6 +50,15 @@ export const ANALYTICS_EVENTS = [
   "master_completed",
   "track_saved",
   "studio_session_completed",
+
+  /* --- M4: Releases ---------------------------------------------------- */
+  "catalogue_viewed",
+  "release_planning_started",
+  "release_format_selected",
+  "release_strategy_selected",
+  "release_scheduled",
+  "release_published",
+  "track_kept_private",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

@@ -192,6 +192,9 @@ export const TRACK_STATUSES = [
   "IN_PROGRESS",
   "COMPLETE",
   "UNRELEASED",
+  /** A release is booked; the work is finished and waiting on a date. */
+  "SCHEDULED",
+  "RELEASED",
   "SCRAPPED",
 ] as const;
 export type TrackStatus = (typeof TRACK_STATUSES)[number];
