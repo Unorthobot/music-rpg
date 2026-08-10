@@ -21,6 +21,12 @@ export type AppShellProps = {
   /** Optional right-hand contextual content. */
   context?: ReactNode;
   contextLabel?: string;
+  /**
+   * Drops the reading-width constraint. Destinations that are read (Home,
+   * Career, Messages) stay in a comfortable column; a workspace that composes
+   * its own zones needs the whole width.
+   */
+  wide?: boolean;
   children: ReactNode;
 };
 
@@ -31,6 +37,7 @@ export function AppShell({
   eyebrow,
   context,
   contextLabel = "Context",
+  wide = false,
   children,
 }: AppShellProps) {
   return (
@@ -53,7 +60,15 @@ export function AppShell({
 
           <div className="flex flex-1 min-h-0">
             <main id="main" className="flex-1 min-w-0 overflow-y-auto px-gutter py-6 pb-12">
-              <div className="mx-auto w-full max-w-[880px] flex flex-col gap-6">{children}</div>
+              <div
+                className={
+                  wide
+                    ? "w-full flex flex-col gap-6"
+                    : "mx-auto w-full max-w-[880px] flex flex-col gap-6"
+                }
+              >
+                {children}
+              </div>
             </main>
 
             {context ? (

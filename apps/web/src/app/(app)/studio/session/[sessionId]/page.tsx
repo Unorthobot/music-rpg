@@ -83,6 +83,7 @@ export default async function SessionPage({
       act={ACT_LABELS[view.career.careerAct]}
       eyebrow={`Studio · ${session.session.status.replace(/_/g, " ").toLowerCase()}`}
       title={session.track?.title ?? `Session with ${producerName}`}
+      wide
     >
       <StudioWorkspace
         sessionId={session.session.id}
