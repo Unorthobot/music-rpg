@@ -3,6 +3,8 @@ export * from "./describe";
 export * from "./inference/identity";
 export * from "./inference/archetype";
 export * from "./inference/member";
+export * from "./inference/interpretation";
+export * from "./inference/brief";
 export * from "./content/members";
 export * from "./content/archetypes";
 export * from "./content/characters";

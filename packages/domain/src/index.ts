@@ -14,6 +14,7 @@ export * from "./commands/tune-identity";
 export * from "./commands/complete-onboarding";
 export * from "./commands/first-contact";
 export * from "./commands/select-producer";
+export * from "./commands/studio";
 
 export * from "./queries/career-view";
 export * from "./queries/counters";
