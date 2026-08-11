@@ -79,6 +79,13 @@ export const GameEventType = {
   /** Fame / Respect / Heat movement, with the reception facts that caused it. */
   ReceptionMetricPressureApplied: "reception.metric_pressure_applied",
   ReceptionTickCompleted: "reception.tick_completed",
+
+  /* --- M6: Crew & Relationships ---------------------------------------- */
+  /**
+   * A relationship moved. The payload carries which interactions moved it and
+   * by how much — the audit trail for a state the player only sees as a phrase.
+   */
+  RelationshipChanged: "relationship.changed",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -142,6 +149,8 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "reception.word_of_mouth_occurred": "Passed around",
   "reception.metric_pressure_applied": "Standing moved",
   "reception.tick_completed": "Reception simulated",
+
+  "relationship.changed": "A relationship shifted",
 };
 
 export type RecordEventInput = {

@@ -12,3 +12,4 @@ export * from "./career-life";
 export * from "./studio";
 export * from "./releases";
 export * from "./reception";
+export * from "./relationships";

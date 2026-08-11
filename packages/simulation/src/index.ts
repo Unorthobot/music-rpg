@@ -2,6 +2,7 @@ export * from "./chemistry";
 export * from "./describe";
 export * from "./random";
 export * from "./reception";
+export * from "./relationships";
 export * from "./inference/identity";
 export * from "./inference/archetype";
 export * from "./inference/member";

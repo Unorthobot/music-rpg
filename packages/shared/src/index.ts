@@ -6,6 +6,7 @@ export * from "./ids";
 export * from "./money";
 export * from "./numbers";
 export * from "./reception";
+export * from "./relationships";
 export * from "./releases";
 export * from "./result";
 export * from "./slug";

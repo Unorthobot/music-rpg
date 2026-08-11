@@ -17,6 +17,7 @@ export * from "./commands/select-producer";
 export * from "./commands/studio";
 export * from "./commands/release";
 export * from "./commands/reception";
+export * from "./commands/relationships";
 
 export * from "./queries/career-view";
 export * from "./queries/counters";
