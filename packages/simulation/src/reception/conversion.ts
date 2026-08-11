@@ -24,20 +24,22 @@ import {
 export type ConversionInput = {
   cohort: ReceptionCohortState;
   evaluation: CohortEvaluation;
-  engagedListeners: number;
-  repeatListeners: number;
+  /** Today's arrivals — only people it landed on today are eligible. */
+  newEngagedListeners: number;
+  newRepeatListeners: number;
   dayIndex: number;
   seed: string;
 };
 
 export function calculateConversion(input: ConversionInput): number {
-  const { cohort, evaluation, engagedListeners, repeatListeners, dayIndex, seed } = input;
+  const { cohort, evaluation, newEngagedListeners, newRepeatListeners, dayIndex, seed } = input;
 
-  if (engagedListeners === 0) return 0;
+  if (newEngagedListeners === 0) return 0;
 
   // Somebody who came back is worth more here than somebody who engaged once.
   const eligible =
-    engagedListeners * ENGAGED_CONVERSION_BASE + repeatListeners * REPEAT_CONVERSION_WEIGHT;
+    newEngagedListeners * ENGAGED_CONVERSION_BASE +
+    newRepeatListeners * REPEAT_CONVERSION_WEIGHT;
 
   const strength =
     evaluation.fit ** CONVERSION_FIT_EXPONENT *
@@ -50,5 +52,5 @@ export function calculateConversion(input: ConversionInput): number {
   );
 
   // Nobody becomes a fan without engaging first.
-  return Math.min(engagedListeners, Math.max(0, converted));
+  return Math.min(newEngagedListeners, Math.max(0, converted));
 }

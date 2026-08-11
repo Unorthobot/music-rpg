@@ -252,7 +252,7 @@ export async function CareerReception({
                             {evaluation?.credibilityBoost?.toFixed(3) ?? "—"}
                           </td>
                           <td className="px-3 py-2 text-ink">{row?.exposures ?? 0}</td>
-                          <td className="px-3 py-2 text-ink-muted">{row?.listeners ?? 0}</td>
+                          <td className="px-3 py-2 text-ink-muted">{row?.uniqueListeners ?? 0}</td>
                           <td className="px-3 py-2 text-ink-muted">{row?.engagedListeners ?? 0}</td>
                           <td className="px-3 py-2 text-ink-muted">{row?.repeatListeners ?? 0}</td>
                           <td className="px-3 py-2 text-ink">{row?.fanConversions ?? 0}</td>
@@ -301,10 +301,10 @@ export async function CareerReception({
                           <td className="px-3 py-2 text-ink-subtle">
                             {new Date(tick.gameTime).toISOString()}
                           </td>
-                          <td className="px-3 py-2 text-ink">{result.totals?.exposures ?? 0}</td>
-                          <td className="px-3 py-2 text-ink-muted">{result.totals?.listeners ?? 0}</td>
+                          <td className="px-3 py-2 text-ink">{result.totals?.newExposures ?? 0}</td>
+                          <td className="px-3 py-2 text-ink-muted">{result.totals?.newListeners ?? 0}</td>
                           <td className="px-3 py-2 text-ink-muted">
-                            {result.totals?.engagedListeners ?? 0}
+                            {result.totals?.newEngagedListeners ?? 0}
                           </td>
                           <td className="px-3 py-2 text-ink">{result.totals?.fanConversions ?? 0}</td>
                           <td className="px-3 py-2 text-ink-muted">{result.totals?.shares ?? 0}</td>

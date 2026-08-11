@@ -129,8 +129,10 @@ export const releasePerformance = pgTable(
       .references(() => worlds.id, { onDelete: "cascade" }),
     /** Unique reach: people given an opportunity to encounter the record. */
     totalExposures: integer("total_exposures").notNull().default(0),
+    /** Every distinct person who has played it, ever. Not plays, not a window. */
     uniqueListeners: integer("unique_listeners").notNull().default(0),
     engagedListeners: integer("engaged_listeners").notNull().default(0),
+    /** Distinct people who came back at least once. Counted once each. */
     repeatListeners: integer("repeat_listeners").notNull().default(0),
     fanConversions: integer("fan_conversions").notNull().default(0),
     shares: integer("shares").notNull().default(0),
@@ -163,11 +165,13 @@ export const releaseCohortPerformance = pgTable(
       .notNull()
       .references(() => audienceCohorts.id, { onDelete: "cascade" }),
     exposures: integer("exposures").notNull().default(0),
-    listeners: integer("listeners").notNull().default(0),
+    /** The same measure as `release_performance.unique_listeners`, per cohort. */
+    uniqueListeners: integer("unique_listeners").notNull().default(0),
     engagedListeners: integer("engaged_listeners").notNull().default(0),
     repeatListeners: integer("repeat_listeners").notNull().default(0),
     fanConversions: integer("fan_conversions").notNull().default(0),
     shares: integer("shares").notNull().default(0),
+    /** Pending exposure the last tick's sharing will create — replaced, not summed. */
     wordOfMouth: integer("word_of_mouth").notNull().default(0),
     evaluation: jsonb("evaluation").$type<CohortEvaluation | Record<string, never>>()
       .notNull()

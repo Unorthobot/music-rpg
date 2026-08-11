@@ -25,7 +25,8 @@ import {
 export type ShareInput = {
   cohort: ReceptionCohortState;
   evaluation: CohortEvaluation;
-  engagedListeners: number;
+  /** People it landed on today. Only they have anything new to pass on. */
+  newEngagedListeners: number;
   dayIndex: number;
   seed: string;
 };
@@ -37,14 +38,14 @@ export type ShareOutcome = {
 };
 
 export function calculateWordOfMouth(input: ShareInput): ShareOutcome {
-  const { cohort, evaluation, engagedListeners, dayIndex, seed } = input;
+  const { cohort, evaluation, newEngagedListeners, dayIndex, seed } = input;
 
-  if (engagedListeners === 0) return { shares: 0, wordOfMouth: 0 };
+  if (newEngagedListeners === 0) return { shares: 0, wordOfMouth: 0 };
 
   const shares = Math.max(
     0,
     Math.round(
-      engagedListeners *
+      newEngagedListeners *
         cohort.behaviour.shareTendency *
         (SHARE_BASE + evaluation.fit * SHARE_FIT_WEIGHT) *
         seededJitter(RESPONSE_JITTER, seed, cohort.slug, dayIndex, "share"),

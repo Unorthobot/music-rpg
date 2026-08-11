@@ -56,7 +56,7 @@ export function nextAudienceState(input: AudienceStateInput): AudienceStateOutco
 
   const gained =
     AUDIENCE_SCALE *
-    ((outcome.evaluation.fit * outcome.engagedListeners * AFFINITY_ENGAGEMENT_GAIN) / size +
+    ((outcome.evaluation.fit * outcome.newEngagedListeners * AFFINITY_ENGAGEMENT_GAIN) / size +
       (outcome.fanConversions * AFFINITY_CONVERSION_GAIN) / size);
 
   // Not rounded: warmth accumulates in fractions, and rounding each day to
@@ -65,7 +65,7 @@ export function nextAudienceState(input: AudienceStateInput): AudienceStateOutco
 
   // An expectation is only set by people who actually heard something.
   const expectation =
-    outcome.engagedListeners > 0
+    outcome.newEngagedListeners > 0
       ? Math.round(
           clamp(
             current.expectation * (1 - EXPECTATION_BLEND) +
@@ -77,11 +77,11 @@ export function nextAudienceState(input: AudienceStateInput): AudienceStateOutco
       : current.expectation;
 
   const engagementTendency =
-    outcome.listeners > 0
+    outcome.newListeners > 0
       ? Math.round(
           clamp(
             current.engagementTendency * (1 - ENGAGEMENT_TENDENCY_BLEND) +
-              (outcome.engagedListeners / outcome.listeners) *
+              (outcome.newEngagedListeners / outcome.newListeners) *
                 AUDIENCE_SCALE *
                 ENGAGEMENT_TENDENCY_BLEND,
             0,
@@ -96,6 +96,6 @@ export function nextAudienceState(input: AudienceStateInput): AudienceStateOutco
     expectation,
     engagementTendency,
     // Unique people here who have now encountered this artist at all.
-    priorExposure: Math.max(0, current.priorExposure + outcome.exposures),
+    priorExposure: Math.max(0, current.priorExposure + outcome.newExposures),
   };
 }

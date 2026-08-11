@@ -1,10 +1,12 @@
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   artistAudience,
+  artists,
   audienceCohorts,
   careerAudience,
   careerMetricPressure,
   careers,
+  groups,
   receptionTicks,
   releaseCohortPerformance,
   releasePerformance,
@@ -280,7 +282,7 @@ export async function simulateReceptionTick(
       affinity: audience?.affinity ?? 0,
       priorExposure: audience?.priorExposure ?? 0,
       exposures: performance?.exposures ?? 0,
-      listeners: performance?.listeners ?? 0,
+      uniqueListeners: performance?.uniqueListeners ?? 0,
       engagedListeners: performance?.engagedListeners ?? 0,
       repeatListeners: performance?.repeatListeners ?? 0,
       fanConversions: performance?.fanConversions ?? 0,
@@ -407,8 +409,8 @@ export async function simulateReceptionTick(
     properties: {
       releaseId: release.id,
       dayIndex,
-      exposures: result.totals.exposures,
-      listeners: result.totals.listeners,
+      exposures: result.totals.newExposures,
+      listeners: result.totals.newListeners,
       fanConversions: result.totals.fanConversions,
     },
   });
@@ -452,10 +454,10 @@ async function writeCohortPerformance(
         id: ids.generic(),
         releaseId,
         cohortId: cohort.id,
-        exposures: outcome.exposures,
-        listeners: outcome.listeners,
-        engagedListeners: outcome.engagedListeners,
-        repeatListeners: outcome.repeatListeners,
+        exposures: outcome.newExposures,
+        uniqueListeners: outcome.newListeners,
+        engagedListeners: outcome.newEngagedListeners,
+        repeatListeners: outcome.newRepeatListeners,
         fanConversions: outcome.fanConversions,
         shares: outcome.shares,
         wordOfMouth: outcome.wordOfMouth,
@@ -465,10 +467,10 @@ async function writeCohortPerformance(
       .onConflictDoUpdate({
         target: [releaseCohortPerformance.releaseId, releaseCohortPerformance.cohortId],
         set: {
-          exposures: sql`${releaseCohortPerformance.exposures} + ${outcome.exposures}`,
-          listeners: sql`${releaseCohortPerformance.listeners} + ${outcome.listeners}`,
-          engagedListeners: sql`${releaseCohortPerformance.engagedListeners} + ${outcome.engagedListeners}`,
-          repeatListeners: sql`${releaseCohortPerformance.repeatListeners} + ${outcome.repeatListeners}`,
+          exposures: sql`${releaseCohortPerformance.exposures} + ${outcome.newExposures}`,
+          uniqueListeners: sql`${releaseCohortPerformance.uniqueListeners} + ${outcome.newListeners}`,
+          engagedListeners: sql`${releaseCohortPerformance.engagedListeners} + ${outcome.newEngagedListeners}`,
+          repeatListeners: sql`${releaseCohortPerformance.repeatListeners} + ${outcome.newRepeatListeners}`,
           fanConversions: sql`${releaseCohortPerformance.fanConversions} + ${outcome.fanConversions}`,
           shares: sql`${releaseCohortPerformance.shares} + ${outcome.shares}`,
           wordOfMouth: outcome.wordOfMouth,
@@ -500,10 +502,10 @@ async function writeReleasePerformance(
       releaseId: input.release.id,
       careerId: input.career.id,
       worldId: input.release.worldId,
-      totalExposures: totals.exposures,
-      uniqueListeners: totals.listeners,
-      engagedListeners: totals.engagedListeners,
-      repeatListeners: totals.repeatListeners,
+      totalExposures: totals.newExposures,
+      uniqueListeners: totals.newListeners,
+      engagedListeners: totals.newEngagedListeners,
+      repeatListeners: totals.newRepeatListeners,
       fanConversions: totals.fanConversions,
       shares: totals.shares,
       wordOfMouth: totals.wordOfMouth,
@@ -517,10 +519,10 @@ async function writeReleasePerformance(
     .onConflictDoUpdate({
       target: releasePerformance.releaseId,
       set: {
-        totalExposures: sql`${releasePerformance.totalExposures} + ${totals.exposures}`,
-        uniqueListeners: sql`${releasePerformance.uniqueListeners} + ${totals.listeners}`,
-        engagedListeners: sql`${releasePerformance.engagedListeners} + ${totals.engagedListeners}`,
-        repeatListeners: sql`${releasePerformance.repeatListeners} + ${totals.repeatListeners}`,
+        totalExposures: sql`${releasePerformance.totalExposures} + ${totals.newExposures}`,
+        uniqueListeners: sql`${releasePerformance.uniqueListeners} + ${totals.newListeners}`,
+        engagedListeners: sql`${releasePerformance.engagedListeners} + ${totals.newEngagedListeners}`,
+        repeatListeners: sql`${releasePerformance.repeatListeners} + ${totals.newRepeatListeners}`,
         fanConversions: sql`${releasePerformance.fanConversions} + ${totals.fanConversions}`,
         shares: sql`${releasePerformance.shares} + ${totals.shares}`,
         wordOfMouth: totals.wordOfMouth,
@@ -580,7 +582,7 @@ async function writeArtistAudience(
         engagementTendency: next.engagementTendency,
         expectation: next.expectation,
         priorExposure: next.priorExposure,
-        lastReachedGameTime: outcome.exposures > 0 ? input.gameTime : null,
+        lastReachedGameTime: outcome.newExposures > 0 ? input.gameTime : null,
         updatedAt: input.now,
       })
       .onConflictDoUpdate({
@@ -591,7 +593,7 @@ async function writeArtistAudience(
           engagementTendency: next.engagementTendency,
           expectation: next.expectation,
           priorExposure: next.priorExposure,
-          ...(outcome.exposures > 0 ? { lastReachedGameTime: input.gameTime } : {}),
+          ...(outcome.newExposures > 0 ? { lastReachedGameTime: input.gameTime } : {}),
           updatedAt: input.now,
         },
       });
@@ -604,6 +606,21 @@ async function writeArtistAudience(
  * Pressure accrues as fractions and the visible metric is the floor of it.
  * Legacy is not touched, and there is no accrual column for it to arrive
  * through: one Underground single does not create a legacy.
+ *
+ * **Where standing lives.** There is one computation and two readers. The
+ * accrual in `career_metric_pressure` is the source; from it, this writes both
+ * the career's copy (the player's run — Home, Career) and the controlled
+ * entity's copy (the fiction — public profiles, the world). They are written
+ * together, in this transaction, from the same number, so the two surfaces can
+ * never disagree about how famous somebody is.
+ *
+ * This is not the same as duplicating the metric. The career and the entity are
+ * different subjects and will legitimately diverge later: a group career makes
+ * the *Group* famous, and the individual standing of the player's own artist
+ * inside it is its own question, which is why `careers.player_artist_id` exists
+ * and why nothing here writes to it. Until a milestone gives a member their own
+ * pressure, an individual in a group is exactly as known as they have earned:
+ * not at all.
  */
 async function writeCareerConsequences(
   tx: Tx,
@@ -639,35 +656,63 @@ async function writeCareerConsequences(
       },
     });
 
+  const standing = { fame: fame.value, respect: respect.value, heat: heat.value };
+
   await tx
     .update(careers)
-    .set({ fame: fame.value, respect: respect.value, heat: heat.value, updatedAt: input.now })
+    .set({ ...standing, updatedAt: input.now })
     .where(eq(careers.id, input.career.id));
+
+  // The same number, on the entity the world actually knows by name. Legacy is
+  // absent from `standing`, so it cannot arrive here either.
+  if (input.career.controlledEntityType === "ARTIST" && input.career.controlledEntityId) {
+    await tx
+      .update(artists)
+      .set({ ...standing, updatedAt: input.now })
+      .where(eq(artists.id, input.career.controlledEntityId));
+  } else if (input.career.controlledEntityType === "GROUP" && input.career.controlledEntityId) {
+    await tx
+      .update(groups)
+      .set({ ...standing, updatedAt: input.now })
+      .where(eq(groups.id, input.career.controlledEntityId));
+  }
 
   /*
    * The projection Home reads is a roll-up of what the simulation produced —
-   * never a number written directly. Fans are the persistent affinity summed
-   * across cohorts; listeners are the people who heard something recently.
+   * never a number written directly.
+   *
+   * `fans` is persistent affinity summed across cohorts: a total, with no
+   * window, because a fan does not lapse in this milestone.
+   *
+   * `monthlyListeners` is the one windowed figure in the game, and it is summed
+   * from the *ticks* rather than from release totals — people who first heard
+   * something of this career's within the last thirty game days. Summing
+   * `release_performance.unique_listeners` instead would count a two-year-old
+   * record's entire lifetime the moment one late tick touched it.
+   *
+   * `reach` is lifetime unique exposure across everything released.
    */
   const since = new Date(input.gameTime.getTime() - LISTENER_WINDOW_DAYS * DAYS);
 
-  const [fanRows, listenerRows] = await Promise.all([
+  const [fanRows, windowRows, reachRows] = await Promise.all([
     tx
       .select({ value: sql<number>`coalesce(sum(${artistAudience.fans}), 0)::int` })
       .from(artistAudience)
       .where(eq(artistAudience.careerId, input.career.id)),
     tx
       .select({
-        listeners: sql<number>`coalesce(sum(${releasePerformance.uniqueListeners}), 0)::int`,
-        reach: sql<number>`coalesce(sum(${releasePerformance.totalExposures}), 0)::int`,
+        value: sql<number>`coalesce(sum((${receptionTicks.result} -> 'totals' ->> 'newListeners')::int), 0)::int`,
+      })
+      .from(receptionTicks)
+      .where(
+        and(eq(receptionTicks.careerId, input.career.id), gte(receptionTicks.gameTime, since)),
+      ),
+    tx
+      .select({
+        value: sql<number>`coalesce(sum(${releasePerformance.totalExposures}), 0)::int`,
       })
       .from(releasePerformance)
-      .where(
-        and(
-          eq(releasePerformance.careerId, input.career.id),
-          gte(releasePerformance.lastSimulatedGameTime, since),
-        ),
-      ),
+      .where(eq(releasePerformance.careerId, input.career.id)),
   ]);
 
   await tx
@@ -675,16 +720,16 @@ async function writeCareerConsequences(
     .values({
       careerId: input.career.id,
       fans: fanRows[0]?.value ?? 0,
-      monthlyListeners: listenerRows[0]?.listeners ?? 0,
-      reach: listenerRows[0]?.reach ?? 0,
+      monthlyListeners: windowRows[0]?.value ?? 0,
+      reach: reachRows[0]?.value ?? 0,
       updatedAt: input.now,
     })
     .onConflictDoUpdate({
       target: careerAudience.careerId,
       set: {
         fans: fanRows[0]?.value ?? 0,
-        monthlyListeners: listenerRows[0]?.listeners ?? 0,
-        reach: listenerRows[0]?.reach ?? 0,
+        monthlyListeners: windowRows[0]?.value ?? 0,
+        reach: reachRows[0]?.value ?? 0,
         updatedAt: input.now,
       },
     });
@@ -724,7 +769,7 @@ async function recordReceptionEvents(
   for (const outcome of result.cohorts) {
     const key = `reception:${release.id}:d${dayIndex}:${outcome.cohortSlug}`;
 
-    if (outcome.exposures > 0) {
+    if (outcome.newExposures > 0) {
       await recordEvent(tx, {
         ...base,
         eventType: GameEventType.ReceptionExposureOccurred,
@@ -733,7 +778,7 @@ async function recordReceptionEvents(
         payload: {
           cohort: outcome.cohortSlug,
           dayIndex,
-          exposures: outcome.exposures,
+          newExposures: outcome.newExposures,
           fromWordOfMouth: outcome.wordOfMouthExposures,
           addressablePopulation: outcome.addressablePopulation,
           // Why this cohort, this much: the evaluation that produced it.
@@ -742,7 +787,7 @@ async function recordReceptionEvents(
       });
     }
 
-    if (outcome.listeners > 0) {
+    if (outcome.newListeners > 0) {
       await recordEvent(tx, {
         ...base,
         eventType: GameEventType.ReceptionEngagementOccurred,
@@ -751,9 +796,9 @@ async function recordReceptionEvents(
         payload: {
           cohort: outcome.cohortSlug,
           dayIndex,
-          listeners: outcome.listeners,
-          engagedListeners: outcome.engagedListeners,
-          repeatListeners: outcome.repeatListeners,
+          newListeners: outcome.newListeners,
+          newEngagedListeners: outcome.newEngagedListeners,
+          newRepeatListeners: outcome.newRepeatListeners,
           fit: outcome.evaluation.fit,
         },
       });
@@ -769,7 +814,7 @@ async function recordReceptionEvents(
           cohort: outcome.cohortSlug,
           dayIndex,
           fanConversions: outcome.fanConversions,
-          fromEngaged: outcome.engagedListeners,
+          fromEngaged: outcome.newEngagedListeners,
           fit: outcome.evaluation.fit,
         },
       });
@@ -807,8 +852,8 @@ async function recordReceptionEvents(
         respect: pressure.respect,
         heat: pressure.heat,
         // The facts that caused it, so the movement can be argued with.
-        exposures: result.totals.exposures,
-        engagedListeners: result.totals.engagedListeners,
+        newExposures: result.totals.newExposures,
+        newEngagedListeners: result.totals.newEngagedListeners,
         shares: result.totals.shares,
         momentumBefore: result.momentumBefore,
         momentumAfter: result.momentumAfter,

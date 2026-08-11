@@ -38,7 +38,8 @@ import {
 
 export function nextMomentum(input: {
   momentumBefore: number;
-  listeners: number;
+  /** Today's arrivals. Momentum is about what is happening now, not the total. */
+  newListeners: number;
   shares: number;
   fanConversions: number;
 }): number {
@@ -46,7 +47,7 @@ export function nextMomentum(input: {
   // still happening.
   const carried = input.momentumBefore * MOMENTUM_DECAY_PER_DAY;
   const generated =
-    input.listeners * MOMENTUM_LISTENER_WEIGHT +
+    input.newListeners * MOMENTUM_LISTENER_WEIGHT +
     input.shares * MOMENTUM_SHARE_WEIGHT +
     input.fanConversions * MOMENTUM_CONVERSION_WEIGHT;
 
@@ -83,11 +84,11 @@ export function calculateMetricPressure(input: {
     const behaviour = behaviourFor(outcome.cohortSlug);
     if (!behaviour) continue;
 
-    weightedExposure += outcome.exposures * behaviour.famePressure;
+    weightedExposure += outcome.newExposures * behaviour.famePressure;
     // Respect is not won by being heard, but by being taken seriously — so the
     // strength of the response is part of the weight.
     weightedEngagement +=
-      outcome.engagedListeners * outcome.evaluation.fit * behaviour.respectPressure;
+      outcome.newEngagedListeners * outcome.evaluation.fit * behaviour.respectPressure;
     weightedShares += outcome.shares * behaviour.heatPressure;
   }
 

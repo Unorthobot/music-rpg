@@ -38,7 +38,7 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
       dayIndex: input.dayIndex,
     });
 
-    const { addressablePopulation, exposures, wordOfMouthExposures } = calculateExposure({
+    const { addressablePopulation, newExposures, wordOfMouthExposures } = calculateExposure({
       cohort,
       evaluation,
       dayIndex: input.dayIndex,
@@ -48,10 +48,10 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
       momentum: input.momentum,
     });
 
-    const { listeners, engagedListeners, repeatListeners } = calculateEngagement({
+    const { newListeners, newEngagedListeners, newRepeatListeners } = calculateEngagement({
       cohort,
       evaluation,
-      exposures,
+      newExposures,
       dayIndex: input.dayIndex,
       seed: input.seed,
     });
@@ -59,8 +59,8 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
     const fanConversions = calculateConversion({
       cohort,
       evaluation,
-      engagedListeners,
-      repeatListeners,
+      newEngagedListeners,
+      newRepeatListeners,
       dayIndex: input.dayIndex,
       seed: input.seed,
     });
@@ -68,7 +68,7 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
     const { shares, wordOfMouth } = calculateWordOfMouth({
       cohort,
       evaluation,
-      engagedListeners,
+      newEngagedListeners,
       dayIndex: input.dayIndex,
       seed: input.seed,
     });
@@ -77,11 +77,11 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
       cohortSlug: cohort.slug,
       evaluation,
       addressablePopulation,
-      exposures,
+      newExposures,
       wordOfMouthExposures,
-      listeners,
-      engagedListeners,
-      repeatListeners,
+      newListeners,
+      newEngagedListeners,
+      newRepeatListeners,
       fanConversions,
       shares,
       wordOfMouth,
@@ -101,19 +101,19 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
 
   const totals = withRouting.reduce<ReceptionTotals>(
     (sum, outcome) => ({
-      exposures: sum.exposures + outcome.exposures,
-      listeners: sum.listeners + outcome.listeners,
-      engagedListeners: sum.engagedListeners + outcome.engagedListeners,
-      repeatListeners: sum.repeatListeners + outcome.repeatListeners,
+      newExposures: sum.newExposures + outcome.newExposures,
+      newListeners: sum.newListeners + outcome.newListeners,
+      newEngagedListeners: sum.newEngagedListeners + outcome.newEngagedListeners,
+      newRepeatListeners: sum.newRepeatListeners + outcome.newRepeatListeners,
       fanConversions: sum.fanConversions + outcome.fanConversions,
       shares: sum.shares + outcome.shares,
       wordOfMouth: sum.wordOfMouth + outcome.wordOfMouth,
     }),
     {
-      exposures: 0,
-      listeners: 0,
-      engagedListeners: 0,
-      repeatListeners: 0,
+      newExposures: 0,
+      newListeners: 0,
+      newEngagedListeners: 0,
+      newRepeatListeners: 0,
       fanConversions: 0,
       shares: 0,
       wordOfMouth: 0,
@@ -122,7 +122,7 @@ export function calculateReceptionTick(input: ReceptionTickInput): ReceptionTick
 
   const momentumAfter = nextMomentum({
     momentumBefore: input.momentum,
-    listeners: totals.listeners,
+    newListeners: totals.newListeners,
     shares: totals.shares,
     fanConversions: totals.fanConversions,
   });

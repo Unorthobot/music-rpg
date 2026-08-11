@@ -39,10 +39,11 @@ export type ExposureInput = {
 };
 
 export type ExposureOutcome = {
-  /** People here who have not yet encountered this record. */
+  /** People here who had still not encountered this record when the day began. */
   addressablePopulation: number;
-  exposures: number;
-  /** The part of `exposures` that arrived because somebody passed it on. */
+  /** People exposed for the first time today. */
+  newExposures: number;
+  /** The part of `newExposures` that arrived because somebody passed it on. */
   wordOfMouthExposures: number;
 };
 
@@ -51,7 +52,7 @@ export function calculateExposure(input: ExposureInput): ExposureOutcome {
 
   const addressablePopulation = Math.max(0, cohort.size - cohort.exposures);
   if (addressablePopulation === 0) {
-    return { addressablePopulation: 0, exposures: 0, wordOfMouthExposures: 0 };
+    return { addressablePopulation: 0, newExposures: 0, wordOfMouthExposures: 0 };
   }
 
   // Being findable at all: how much of an event this is, and how known the
@@ -82,14 +83,14 @@ export function calculateExposure(input: ExposureInput): ExposureOutcome {
   // Word of mouth is exposure that was earned rather than found, so it is not
   // subject to the modifiers or the decay — somebody actually passed it on.
   const carried = Math.max(0, Math.round(cohort.incomingWordOfMouth));
-  const exposures = Math.min(
+  const newExposures = Math.min(
     addressablePopulation,
     Math.max(0, Math.round(organic)) + carried,
   );
 
   return {
     addressablePopulation,
-    exposures,
-    wordOfMouthExposures: Math.min(carried, exposures),
+    newExposures,
+    wordOfMouthExposures: Math.min(carried, newExposures),
   };
 }

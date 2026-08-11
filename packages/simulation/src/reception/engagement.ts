@@ -29,19 +29,21 @@ import {
 export type EngagementInput = {
   cohort: ReceptionCohortState;
   evaluation: CohortEvaluation;
-  exposures: number;
+  /** People exposed for the first time today — the only candidates to listen. */
+  newExposures: number;
   dayIndex: number;
   seed: string;
 };
 
+/** Today's arrivals, not running totals. */
 export type EngagementOutcome = {
-  listeners: number;
-  engagedListeners: number;
-  repeatListeners: number;
+  newListeners: number;
+  newEngagedListeners: number;
+  newRepeatListeners: number;
 };
 
 export function calculateEngagement(input: EngagementInput): EngagementOutcome {
-  const { cohort, evaluation, exposures, dayIndex, seed } = input;
+  const { cohort, evaluation, newExposures, dayIndex, seed } = input;
   const { behaviour } = cohort;
 
   const listenRate = clamp(
@@ -50,12 +52,14 @@ export function calculateEngagement(input: EngagementInput): EngagementOutcome {
     LISTEN_CEILING,
   );
 
-  const listeners = Math.min(
-    exposures,
+  const newListeners = Math.min(
+    newExposures,
     Math.max(
       0,
       Math.round(
-        exposures * listenRate * seededJitter(RESPONSE_JITTER, seed, cohort.slug, dayIndex, "listen"),
+        newExposures *
+          listenRate *
+          seededJitter(RESPONSE_JITTER, seed, cohort.slug, dayIndex, "listen"),
       ),
     ),
   );
@@ -68,12 +72,14 @@ export function calculateEngagement(input: EngagementInput): EngagementOutcome {
     ENGAGE_CEILING,
   );
 
-  const engagedListeners = Math.min(
-    listeners,
+  const newEngagedListeners = Math.min(
+    newListeners,
     Math.max(
       0,
       Math.round(
-        listeners * engageRate * seededJitter(RESPONSE_JITTER, seed, cohort.slug, dayIndex, "engage"),
+        newListeners *
+          engageRate *
+          seededJitter(RESPONSE_JITTER, seed, cohort.slug, dayIndex, "engage"),
       ),
     ),
   );
@@ -87,8 +93,8 @@ export function calculateEngagement(input: EngagementInput): EngagementOutcome {
    * everyone here who has already heard it and not yet come back, so this can
    * only happen from the second day onward.
    */
-  const returningPool = Math.max(0, cohort.listeners - cohort.repeatListeners);
-  const repeatListeners = Math.min(
+  const returningPool = Math.max(0, cohort.uniqueListeners - cohort.repeatListeners);
+  const newRepeatListeners = Math.min(
     returningPool,
     Math.max(
       0,
@@ -101,5 +107,5 @@ export function calculateEngagement(input: EngagementInput): EngagementOutcome {
     ),
   );
 
-  return { listeners, engagedListeners, repeatListeners };
+  return { newListeners, newEngagedListeners, newRepeatListeners };
 }

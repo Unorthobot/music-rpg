@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   artistAudience,
+  artists,
   audienceCohorts,
   careerMetricPressure,
   careers,
@@ -10,12 +11,14 @@ import {
   releasePerformance,
   releases,
   soundProfiles,
+  worlds,
   type UserRow,
 } from "@music-rpg/database";
 import { GameEventType, listCareerEvents } from "@music-rpg/events";
 import {
   getArtistAudience,
   getCareerCounters,
+  getPublicArtistProfile,
   getReceptionHistory,
   getReleaseCohortPerformance,
   getReleasePerformance,
@@ -118,7 +121,7 @@ describe("reception — the golden three days", () => {
 
     expect(tick.dayIndex).toBe(1);
     expect(tick.alreadySimulated).toBe(false);
-    expect(tick.result.totals.exposures).toBeGreaterThan(0);
+    expect(tick.result.totals.newExposures).toBeGreaterThan(0);
     expect(tick.result.cohorts).toHaveLength(3);
 
     // The same record, three different judgements. If these collapsed onto one
@@ -134,7 +137,7 @@ describe("reception — the golden three days", () => {
 
     // Day one cannot contain word of mouth: nobody has heard it yet to pass on.
     expect(tick.result.cohorts.every((cohort) => cohort.wordOfMouthExposures === 0)).toBe(true);
-    expect(tick.result.totals.repeatListeners).toBe(0);
+    expect(tick.result.totals.newRepeatListeners).toBe(0);
   });
 
   it("day 2 — the previous day is an input, not a fresh start", async () => {
@@ -148,7 +151,7 @@ describe("reception — the golden three days", () => {
     // Yesterday's sharing is today's exposure, and yesterday's listeners are the
     // only people who can come back.
     expect(tick.result.cohorts.some((cohort) => cohort.wordOfMouthExposures > 0)).toBe(true);
-    expect(tick.result.totals.repeatListeners).toBeGreaterThan(0);
+    expect(tick.result.totals.newRepeatListeners).toBeGreaterThan(0);
 
     // Momentum carried rather than being recomputed from zero.
     expect(tick.result.momentumBefore).toBeCloseTo(days[0]!.momentumAfter, 5);
@@ -186,7 +189,7 @@ describe("reception — the golden three days", () => {
 
     for (const view of views) {
       expect(view.performance!.exposures).toBeLessThanOrEqual(view.cohort.size);
-      expect(view.performance!.listeners).toBeLessThanOrEqual(view.performance!.exposures);
+      expect(view.performance!.uniqueListeners).toBeLessThanOrEqual(view.performance!.exposures);
       expect(view.performance!.fanConversions).toBeLessThanOrEqual(
         view.performance!.engagedListeners,
       );
@@ -202,7 +205,7 @@ describe("reception — the golden three days", () => {
       rows.reduce((total, row) => total + pick(row), 0);
 
     expect(sum((row) => row.exposures)).toBe(performance.totalExposures);
-    expect(sum((row) => row.listeners)).toBe(performance.uniqueListeners);
+    expect(sum((row) => row.uniqueListeners)).toBe(performance.uniqueListeners);
     expect(sum((row) => row.engagedListeners)).toBe(performance.engagedListeners);
     expect(sum((row) => row.repeatListeners)).toBe(performance.repeatListeners);
     expect(sum((row) => row.fanConversions)).toBe(performance.fanConversions);
@@ -232,9 +235,12 @@ describe("reception — the golden three days", () => {
       rows.reduce((sum, event) => sum + Number((event.payload as Record<string, number>)[key] ?? 0), 0);
 
     // The projection is the sum of its history, not a number written beside it.
-    expect(total(exposureEvents, "exposures")).toBe(performance.totalExposures);
-    expect(total(engagementEvents, "listeners")).toBe(performance.uniqueListeners);
-    expect(total(engagementEvents, "engagedListeners")).toBe(performance.engagedListeners);
+    // Events carry that day's arrivals. Running them up is exactly how the
+    // cumulative projection is produced — which is the reconciliation.
+    expect(total(exposureEvents, "newExposures")).toBe(performance.totalExposures);
+    expect(total(engagementEvents, "newListeners")).toBe(performance.uniqueListeners);
+    expect(total(engagementEvents, "newEngagedListeners")).toBe(performance.engagedListeners);
+    expect(total(engagementEvents, "newRepeatListeners")).toBe(performance.repeatListeners);
     expect(total(conversionEvents, "fanConversions")).toBe(performance.fanConversions);
 
     // And each exposure event carries the evaluation that caused it.
@@ -269,6 +275,40 @@ describe("reception — the golden three days", () => {
     expect(career!.fame).toBeLessThan(5);
   });
 
+  it("gives the world the same answer about KXMO that the career gives", async () => {
+    const [career] = await test.handle.db.select().from(careers).where(eq(careers.id, careerId));
+    const [world] = await test.handle.db
+      .select()
+      .from(worlds)
+      .where(eq(worlds.id, career!.worldId));
+    const [artist] = await test.handle.db
+      .select()
+      .from(artists)
+      .where(eq(artists.id, career!.controlledEntityId!));
+
+    const profile = (await getPublicArtistProfile(
+      test.handle.db,
+      world!.slug,
+      artist!.slug,
+      career!.userId,
+    ))!;
+
+    /*
+     * "How famous is KXMO?" has exactly one answer. The career carries the
+     * player's run and the artist carries the fiction the world can see, and
+     * both are written from the same accrual in the same transaction — so Home
+     * and a public profile can never quote different numbers.
+     */
+    expect(artist!.fame).toBe(career!.fame);
+    expect(artist!.respect).toBe(career!.respect);
+    expect(artist!.heat).toBe(career!.heat);
+    expect(profile.fame).toBe(career!.fame);
+    expect(profile.respect).toBe(career!.respect);
+
+    // Legacy is not part of that handoff and stays where it was.
+    expect(artist!.legacy).toBe(0);
+  });
+
   it("leaves Legacy at zero", async () => {
     const [career] = await test.handle.db.select().from(careers).where(eq(careers.id, careerId));
     expect(career!.legacy).toBe(0);
@@ -279,6 +319,56 @@ describe("reception — the golden three days", () => {
       .from(careerMetricPressure)
       .where(eq(careerMetricPressure.careerId, careerId));
     expect(pressure).not.toHaveProperty("legacyAccrued");
+  });
+
+  it("means one thing by listener: a person, counted once, ever", async () => {
+    const performance = (await getReleasePerformance(test.handle.db, releaseId))!.performance!;
+    const history = await getReceptionHistory(test.handle.db, releaseId);
+    const results = history.map((tick) => tick.result as ReceptionTickResult);
+
+    /*
+     * A tick reports arrivals; a projection reports totals. The two are tied
+     * together by simple addition, which is only true because the daily sets
+     * are disjoint — nobody is counted as a new listener twice.
+     */
+    const summed = (pick: (totals: ReceptionTickResult["totals"]) => number) =>
+      results.reduce((total, result) => total + pick(result.totals), 0);
+
+    expect(summed((totals) => totals.newExposures)).toBe(performance.totalExposures);
+    expect(summed((totals) => totals.newListeners)).toBe(performance.uniqueListeners);
+    expect(summed((totals) => totals.newEngagedListeners)).toBe(performance.engagedListeners);
+    expect(summed((totals) => totals.newRepeatListeners)).toBe(performance.repeatListeners);
+    expect(summed((totals) => totals.fanConversions)).toBe(performance.fanConversions);
+
+    // Repeat listeners are unique people returning, drawn only from people who
+    // had already listened — so they can never outnumber the listeners, however
+    // many days run.
+    expect(performance.repeatListeners).toBeLessThanOrEqual(performance.uniqueListeners);
+
+    // A day's new listeners can only come from that day's new exposures.
+    for (const result of results) {
+      expect(result.totals.newListeners).toBeLessThanOrEqual(result.totals.newExposures);
+      for (const cohort of result.cohorts) {
+        expect(cohort.newListeners).toBeLessThanOrEqual(cohort.newExposures);
+        expect(cohort.newEngagedListeners).toBeLessThanOrEqual(cohort.newListeners);
+      }
+    }
+  });
+
+  it("windows monthly listeners, and totals everything else", async () => {
+    const counters = await getCareerCounters(test.handle.db, { id: careerId });
+    const history = await getReceptionHistory(test.handle.db, releaseId);
+    const results = history.map((tick) => tick.result as ReceptionTickResult);
+
+    // Three days into a record's life the window contains all of it, so the
+    // windowed figure and the lifetime figure agree — which is exactly when a
+    // wrong definition would go unnoticed. The assertion is that it is summed
+    // from the ticks inside the window, not from the release's lifetime total.
+    const withinWindow = results.reduce((total, result) => total + result.totals.newListeners, 0);
+    expect(counters.monthlyListeners).toBe(withinWindow);
+
+    const performance = (await getReleasePerformance(test.handle.db, releaseId))!.performance!;
+    expect(counters.reach).toBe(performance.totalExposures);
   });
 
   it("counts listeners and fans separately on the career", async () => {

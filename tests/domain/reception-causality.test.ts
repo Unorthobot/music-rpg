@@ -156,8 +156,8 @@ describe("a changed input produces an explainably different trajectory", () => {
     // Casual listeners answer reach and almost nothing else, so this is where
     // the modifier should show up first and largest.
     expect(after.evaluation.reachBoost).toBeGreaterThan(before.evaluation.reachBoost);
-    expect(after.exposures).toBeGreaterThan(before.exposures);
-    expect(reachier.days[0]!.totals.exposures).toBeGreaterThan(baseline.days[0]!.totals.exposures);
+    expect(after.newExposures).toBeGreaterThan(before.newExposures);
+    expect(reachier.days[0]!.totals.newExposures).toBeGreaterThan(baseline.days[0]!.totals.newExposures);
 
     // Breadth is Fame's business, so Fame is what moves.
     expect(reachier.fameAccrued).toBeGreaterThan(baseline.fameAccrued);
@@ -190,7 +190,7 @@ describe("a changed input produces an explainably different trajectory", () => {
     // The consequence, in order: engaged more, converted more, and pressed
     // harder on the metric that answers to this cohort.
     const engaged = (run: Run) =>
-      run.days.reduce((sum, day) => sum + cohortOf(day, "SCENE_HEADS").engagedListeners, 0);
+      run.days.reduce((sum, day) => sum + cohortOf(day, "SCENE_HEADS").newEngagedListeners, 0);
     const converted = (run: Run) =>
       run.days.reduce((sum, day) => sum + cohortOf(day, "SCENE_HEADS").fanConversions, 0);
 
@@ -404,6 +404,6 @@ describe("a tick that fails applies nothing", () => {
     );
     expect(retried.dayIndex).toBe(1);
     expect(retried.alreadySimulated).toBe(false);
-    expect(retried.result.totals.exposures).toBeGreaterThan(0);
+    expect(retried.result.totals.newExposures).toBeGreaterThan(0);
   });
 });

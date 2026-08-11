@@ -4,18 +4,56 @@ import type { ReleaseFormat } from "./releases";
 /**
  * Reception.
  *
- * The vocabulary shared by the simulator, the commands, the read models and the
- * inspector, so that "engaged listener" means one thing everywhere.
+ * The vocabulary shared by the simulator, the commands, the read models, the
+ * inspector and — from M5 onward — the player, so that "listener" means one
+ * thing everywhere it is written or shown.
  *
- * The distinctions this file exists to keep apart:
+ * ## The four states, in order
  *
- * - **Exposure** — someone had an opportunity to encounter the record.
- * - **Listener** — someone consumed it.
- * - **Engaged listener** — it landed.
- * - **Fan** — persistent affinity toward the artist, which outlives the record.
+ * - **Exposed** — this person had an opportunity to encounter the record.
+ * - **Listener** — this person played it.
+ * - **Engaged listener** — it landed on them.
+ * - **Fan** — persistent affinity toward the *artist*, which outlives the
+ *   record that created it.
  *
- * Each is a strict subset of the one before it, and none of them is the same
- * number.
+ * Each is a strict subset of the one before, and none of them is the same
+ * number as any other.
+ *
+ * ## People, counted once
+ *
+ * Every one of those counts is **unique people, per release**. Somebody is
+ * exposed to a given record once and becomes a listener of it once, no matter
+ * how many times they play it. There is no play count in this model and no
+ * figure anywhere that grows when the same person listens again.
+ *
+ * The one thing that does describe returning is **repeat listeners**: unique
+ * people who came back at least once, having already listened. They are counted
+ * once each too, on the day they first return.
+ *
+ * ## Deltas versus totals
+ *
+ * The distinction that would otherwise be easy to get wrong, so it is in the
+ * names rather than in a comment:
+ *
+ * - A **tick** reports `new*` fields. They are that day's arrivals, and they
+ *   describe disjoint sets of people, so running them up across days is exactly
+ *   how a cumulative figure is produced.
+ * - A **projection** (`release_performance`, `release_cohort_performance`)
+ *   reports totals. `uniqueListeners` is every person who has ever listened —
+ *   never a rate, never a window, never a daily count.
+ *
+ * So `61 listeners` on day three means sixty-one different people have played
+ * the record since it came out. It does not mean sixty-one people played it on
+ * day three, and it does not mean sixty-one plays.
+ *
+ * ## The one windowed figure
+ *
+ * `career_audience.monthly_listeners` is the exception and is the only place a
+ * period appears: unique people who *first heard* one of this career's records
+ * within the trailing 30 game days. Because individual people are not modelled
+ * across releases, somebody who discovered two of your records in the same
+ * month counts in both — a limit worth knowing before that number is put on a
+ * screen next to the word "listeners".
  */
 
 /** Which simulator produced a result. Persisted; historical runs keep theirs. */
@@ -114,29 +152,42 @@ export type CohortEvaluation = {
   credibilityBoost: number;
 };
 
-/** One cohort's day. */
+/**
+ * One cohort's day.
+ *
+ * Every count here is a **delta**: people who arrived at that state today, not
+ * the running total. The sets are disjoint across days, so summing a field over
+ * a release's ticks reproduces the matching projection column exactly.
+ */
 export type CohortTickOutcome = {
   cohortSlug: string;
   evaluation: CohortEvaluation;
-  /** People here who had not encountered this record before today. */
+  /** People here who had still not encountered this record when the day began. */
   addressablePopulation: number;
-  exposures: number;
-  /** The part of `exposures` that arrived through somebody passing it on. */
+  /** People exposed for the first time today. */
+  newExposures: number;
+  /** The part of `newExposures` that arrived through somebody passing it on. */
   wordOfMouthExposures: number;
-  listeners: number;
-  engagedListeners: number;
-  repeatListeners: number;
+  /** People who played it for the first time today. */
+  newListeners: number;
+  /** Of `newListeners`, those it landed on. */
+  newEngagedListeners: number;
+  /** People who had already listened and came back today, counted once each. */
+  newRepeatListeners: number;
+  /** People who became fans of the artist today. */
   fanConversions: number;
+  /** Times it was passed on today. */
   shares: number;
-  /** Exposure those shares will create on the next tick. */
+  /** Exposure those shares will create on the next tick, after routing. */
   wordOfMouth: number;
 };
 
+/** A tick's totals across all cohorts. Deltas, like the cohort fields above. */
 export type ReceptionTotals = {
-  exposures: number;
-  listeners: number;
-  engagedListeners: number;
-  repeatListeners: number;
+  newExposures: number;
+  newListeners: number;
+  newEngagedListeners: number;
+  newRepeatListeners: number;
   fanConversions: number;
   shares: number;
   wordOfMouth: number;
@@ -182,9 +233,12 @@ export type ReceptionCohortState = {
   affinity: number;
   /** Unique people here who have ever encountered this artist. */
   priorExposure: number;
-  /** What this record has already done here — from `release_cohort_performance`. */
+  /**
+   * Running totals for this record in this cohort — from
+   * `release_cohort_performance`. Unique people, counted once each.
+   */
   exposures: number;
-  listeners: number;
+  uniqueListeners: number;
   engagedListeners: number;
   /** Unique people here who have already come back at least once. */
   repeatListeners: number;

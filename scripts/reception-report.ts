@@ -157,10 +157,10 @@ function printDay(result: ReceptionTickResult): void {
       `  ${outcome.cohortSlug.padEnd(18)}${pad(outcome.evaluation.fit.toFixed(2), 5)}${pad(
         outcome.addressablePopulation,
         8,
-      )}${pad(outcome.exposures, 8)}${pad(`(${outcome.wordOfMouthExposures})`, 7)}${pad(
-        outcome.listeners,
+      )}${pad(outcome.newExposures, 8)}${pad(`(${outcome.wordOfMouthExposures})`, 7)}${pad(
+        outcome.newListeners,
         8,
-      )}${pad(outcome.engagedListeners, 9)}${pad(outcome.repeatListeners, 8)}${pad(
+      )}${pad(outcome.newEngagedListeners, 9)}${pad(outcome.newRepeatListeners, 8)}${pad(
         outcome.fanConversions,
         6,
       )}${pad(outcome.shares, 8)}${pad(outcome.wordOfMouth, 6)}`,
@@ -168,10 +168,10 @@ function printDay(result: ReceptionTickResult): void {
   }
   const t = result.totals;
   console.log(
-    `  ${"TOTAL".padEnd(18)}${pad("", 5)}${pad("", 8)}${pad(t.exposures, 8)}${pad("", 7)}${pad(
-      t.listeners,
+    `  ${"TOTAL".padEnd(18)}${pad("", 5)}${pad("", 8)}${pad(t.newExposures, 8)}${pad("", 7)}${pad(
+      t.newListeners,
       8,
-    )}${pad(t.engagedListeners, 9)}${pad(t.repeatListeners, 8)}${pad(t.fanConversions, 6)}${pad(
+    )}${pad(t.newEngagedListeners, 9)}${pad(t.newRepeatListeners, 8)}${pad(t.fanConversions, 6)}${pad(
       t.shares,
       8,
     )}${pad(t.wordOfMouth, 6)}`,
@@ -249,7 +249,7 @@ async function runVariant(
   };
 }
 
-function totalFor(days: ReceptionTickResult[], slug: string, key: "exposures" | "engagedListeners" | "fanConversions"): number {
+function totalFor(days: ReceptionTickResult[], slug: string, key: "newExposures" | "newEngagedListeners" | "fanConversions"): number {
   return days.reduce(
     (sum, day) => sum + (day.cohorts.find((cohort) => cohort.cohortSlug === slug)?.[key] ?? 0),
     0,
@@ -354,7 +354,7 @@ async function main() {
     const cohort = cohorts.find((entry) => entry.id === row.cohortId)!;
     const standing = audience.find((entry) => entry.cohortId === row.cohortId);
     console.log(
-      `  ${cohort.slug.padEnd(18)} expo ${pad(row.exposures, 5)} · listen ${pad(row.listeners, 5)} · engaged ${pad(row.engagedListeners, 4)} · repeat ${pad(row.repeatListeners, 4)} · fans ${pad(row.fanConversions, 3)} · shares ${pad(row.shares, 3)} · affinity ${pad(standing?.affinity ?? 0, 4)} · expectation ${pad(standing?.expectation ?? 0, 4)}`,
+      `  ${cohort.slug.padEnd(18)} expo ${pad(row.exposures, 5)} · listen ${pad(row.uniqueListeners, 5)} · engaged ${pad(row.engagedListeners, 4)} · repeat ${pad(row.repeatListeners, 4)} · fans ${pad(row.fanConversions, 3)} · shares ${pad(row.shares, 3)} · affinity ${pad(standing?.affinity ?? 0, 4)} · expectation ${pad(standing?.expectation ?? 0, 4)}`,
     );
   }
 
@@ -421,9 +421,9 @@ async function main() {
           outcome.evaluation.artistFit.toFixed(3),
           11,
         )}${pad(outcome.evaluation.reachBoost.toFixed(3), 8)}${pad(
-          totalFor(variant.days, slug, "exposures"),
+          totalFor(variant.days, slug, "newExposures"),
           10,
-        )}${pad(totalFor(variant.days, slug, "engagedListeners"), 12)}${pad(
+        )}${pad(totalFor(variant.days, slug, "newEngagedListeners"), 12)}${pad(
           totalFor(variant.days, slug, "fanConversions"),
           9,
         )}`,
