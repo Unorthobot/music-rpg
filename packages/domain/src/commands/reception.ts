@@ -436,6 +436,26 @@ type Tx = Parameters<Parameters<CommandContext["db"]["transaction"]>[0]>[0];
  * Counts accumulate; `wordOfMouth` does not. It is the exposure this cohort's
  * sharing owes the *next* tick, so it is replaced each day rather than summed —
  * yesterday's talking has already been spent.
+ *
+ * **Why this is an insert and then an update, rather than an upsert.**
+ *
+ * Every column here is a lifetime total, and the table's CHECK constraints say
+ * so: engaged and returning listeners can never exceed the people who listened.
+ * A day's *deltas* obey no such rule and were never meant to — late in a record's
+ * life almost nobody new arrives while the people who already have it keep coming
+ * back, so a day can perfectly correctly produce one new listener and two
+ * returning ones.
+ *
+ * Postgres checks constraints against the tuple an `INSERT ... ON CONFLICT DO
+ * UPDATE` proposes, not only against the row that ends up stored. Handing it a
+ * delta as the insert payload therefore asked it to accept a day as though it
+ * were a lifetime, and on the first day a cohort's returners outnumbered its
+ * arrivals it refused — correctly. The totals had always been right; the tuple
+ * offered on the way in had not.
+ *
+ * So the row is brought into existence empty, which satisfies every invariant
+ * trivially, and the day is then added to it. The accumulation stays a single
+ * atomic statement and the numbers are unchanged.
  */
 async function writeCohortPerformance(
   tx: Tx,
@@ -448,40 +468,49 @@ async function writeCohortPerformance(
     const cohort = cohortBySlug.get(outcome.cohortSlug);
     if (!cohort) continue;
 
+    // All zeros: a valid lifetime for a cohort that has not been reached yet.
     await tx
       .insert(releaseCohortPerformance)
       .values({
         id: ids.generic(),
         releaseId,
         cohortId: cohort.id,
-        exposures: outcome.newExposures,
-        uniqueListeners: outcome.newListeners,
-        engagedListeners: outcome.newEngagedListeners,
-        repeatListeners: outcome.newRepeatListeners,
-        fanConversions: outcome.fanConversions,
-        shares: outcome.shares,
+        evaluation: outcome.evaluation,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [releaseCohortPerformance.releaseId, releaseCohortPerformance.cohortId],
+      });
+
+    await tx
+      .update(releaseCohortPerformance)
+      .set({
+        exposures: sql`${releaseCohortPerformance.exposures} + ${outcome.newExposures}`,
+        uniqueListeners: sql`${releaseCohortPerformance.uniqueListeners} + ${outcome.newListeners}`,
+        engagedListeners: sql`${releaseCohortPerformance.engagedListeners} + ${outcome.newEngagedListeners}`,
+        repeatListeners: sql`${releaseCohortPerformance.repeatListeners} + ${outcome.newRepeatListeners}`,
+        fanConversions: sql`${releaseCohortPerformance.fanConversions} + ${outcome.fanConversions}`,
+        shares: sql`${releaseCohortPerformance.shares} + ${outcome.shares}`,
         wordOfMouth: outcome.wordOfMouth,
         evaluation: outcome.evaluation,
         updatedAt: now,
       })
-      .onConflictDoUpdate({
-        target: [releaseCohortPerformance.releaseId, releaseCohortPerformance.cohortId],
-        set: {
-          exposures: sql`${releaseCohortPerformance.exposures} + ${outcome.newExposures}`,
-          uniqueListeners: sql`${releaseCohortPerformance.uniqueListeners} + ${outcome.newListeners}`,
-          engagedListeners: sql`${releaseCohortPerformance.engagedListeners} + ${outcome.newEngagedListeners}`,
-          repeatListeners: sql`${releaseCohortPerformance.repeatListeners} + ${outcome.newRepeatListeners}`,
-          fanConversions: sql`${releaseCohortPerformance.fanConversions} + ${outcome.fanConversions}`,
-          shares: sql`${releaseCohortPerformance.shares} + ${outcome.shares}`,
-          wordOfMouth: outcome.wordOfMouth,
-          evaluation: outcome.evaluation,
-          updatedAt: now,
-        },
-      });
+      .where(
+        and(
+          eq(releaseCohortPerformance.releaseId, releaseId),
+          eq(releaseCohortPerformance.cohortId, cohort.id),
+        ),
+      );
   }
 }
 
-/** Release totals. Always the sum of the cohort rows written above. */
+/**
+ * Release totals. Always the sum of the cohort rows written above.
+ *
+ * Brought into existence empty and then accumulated into, for exactly the reason
+ * the cohort writer is: these columns are lifetimes and carry the invariants of
+ * lifetimes, and a single day's figures are not a valid lifetime.
+ */
 async function writeReleasePerformance(
   tx: Tx,
   input: {
@@ -496,42 +525,36 @@ async function writeReleasePerformance(
 ): Promise<ReleasePerformanceRow> {
   const { totals } = input.result;
 
-  const rows = await tx
+  // The seed and the simulator version belong to the record's whole life, so
+  // they are written once, here, and never touched again.
+  await tx
     .insert(releasePerformance)
     .values({
       releaseId: input.release.id,
       careerId: input.career.id,
       worldId: input.release.worldId,
-      totalExposures: totals.newExposures,
-      uniqueListeners: totals.newListeners,
-      engagedListeners: totals.newEngagedListeners,
-      repeatListeners: totals.newRepeatListeners,
-      fanConversions: totals.fanConversions,
-      shares: totals.shares,
-      wordOfMouth: totals.wordOfMouth,
-      currentMomentum: input.result.momentumAfter,
-      daysSimulated: input.dayIndex,
-      lastSimulatedGameTime: input.gameTime,
       simulationSeed: input.seed,
       simulatorVersion: input.result.simulatorVersion,
       updatedAt: input.now,
     })
-    .onConflictDoUpdate({
-      target: releasePerformance.releaseId,
-      set: {
-        totalExposures: sql`${releasePerformance.totalExposures} + ${totals.newExposures}`,
-        uniqueListeners: sql`${releasePerformance.uniqueListeners} + ${totals.newListeners}`,
-        engagedListeners: sql`${releasePerformance.engagedListeners} + ${totals.newEngagedListeners}`,
-        repeatListeners: sql`${releasePerformance.repeatListeners} + ${totals.newRepeatListeners}`,
-        fanConversions: sql`${releasePerformance.fanConversions} + ${totals.fanConversions}`,
-        shares: sql`${releasePerformance.shares} + ${totals.shares}`,
-        wordOfMouth: totals.wordOfMouth,
-        currentMomentum: input.result.momentumAfter,
-        daysSimulated: input.dayIndex,
-        lastSimulatedGameTime: input.gameTime,
-        updatedAt: input.now,
-      },
+    .onConflictDoNothing({ target: releasePerformance.releaseId });
+
+  const rows = await tx
+    .update(releasePerformance)
+    .set({
+      totalExposures: sql`${releasePerformance.totalExposures} + ${totals.newExposures}`,
+      uniqueListeners: sql`${releasePerformance.uniqueListeners} + ${totals.newListeners}`,
+      engagedListeners: sql`${releasePerformance.engagedListeners} + ${totals.newEngagedListeners}`,
+      repeatListeners: sql`${releasePerformance.repeatListeners} + ${totals.newRepeatListeners}`,
+      fanConversions: sql`${releasePerformance.fanConversions} + ${totals.fanConversions}`,
+      shares: sql`${releasePerformance.shares} + ${totals.shares}`,
+      wordOfMouth: totals.wordOfMouth,
+      currentMomentum: input.result.momentumAfter,
+      daysSimulated: input.dayIndex,
+      lastSimulatedGameTime: input.gameTime,
+      updatedAt: input.now,
     })
+    .where(eq(releasePerformance.releaseId, input.release.id))
     .returning();
 
   return rows[0]!;
