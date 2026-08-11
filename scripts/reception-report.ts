@@ -38,6 +38,7 @@ import {
   createSoloArtist,
   getCareerCounters,
   getCareerPulse,
+  getPeople,
   getReleaseReception,
   interpretCreativeDirection,
   loadDiscoveryQuestions,
@@ -56,6 +57,7 @@ import {
   setReleaseStrategy,
   simulateReceptionTick,
   startCreativeSession,
+  syncCareerRelationships,
   type CommandContext,
 } from "@music-rpg/domain";
 import { DevelopmentModerationService } from "@music-rpg/moderation";
@@ -208,7 +210,9 @@ async function main() {
     await auth.register({ email, password: "correct horse battery", displayName: "Kamo" }),
   );
 
-  const { careerId, releaseId, trackId } = await buildPublishedRelease(ctx, handle.db, user.id);
+  const { careerId, releaseId, trackId } = await buildPublishedRelease(ctx, handle.db, user.id, {
+    friction: process.argv.includes("--friction"),
+  });
 
   const [trackRow] = await handle.db.select().from(tracks).where(eq(tracks.id, trackId));
   const [version] = await handle.db
@@ -332,6 +336,15 @@ async function main() {
   console.log(`    +${pulse.fansGained} fans · ${pulse.newListeners} listeners`);
   for (const metric of pulse.metrics) {
     console.log(`    ${metric.label.padEnd(9)} ${metric.movementLabel.padEnd(11)} (${metric.level})`);
+  }
+
+  // Fold the shared history into what LEX makes of this career.
+  unwrap(await syncCareerRelationships(ctx, { careerId, userId: user.id }));
+  const people = await getPeople(handle.db, careerId);
+  console.log("\n  PEOPLE");
+  for (const person of people) {
+    console.log(`    ${person.name} — ${person.kindLabel}`);
+    console.log(`      ${person.line}`);
   }
 
   if (persistAt) {

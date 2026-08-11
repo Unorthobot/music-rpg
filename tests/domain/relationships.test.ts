@@ -1,7 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { characters, eq, gameEvents, relationships, type UserRow } from "@music-rpg/database";
 import { GameEventType } from "@music-rpg/events";
-import { advanceCareerDay, syncCareerRelationships } from "@music-rpg/domain";
+import {
+  advanceCareerDay,
+  getPeople,
+  getRelationshipDecisions,
+  getRelationshipHistory,
+  syncCareerRelationships,
+} from "@music-rpg/domain";
 import { describeRelationship } from "@music-rpg/simulation";
 import {
   RELATIONSHIP_DIMENSIONS,
@@ -224,3 +230,95 @@ describe("a relationship is folded out of what actually happened", () => {
   });
 });
 
+/**
+ * The boundary.
+ *
+ * The simulation knows the number; the player knows the person. Anything on
+ * this list reaching a player view is the bug — the same guard reception holds,
+ * for the same reason.
+ */
+const FORBIDDEN_KEYS = [
+  ...RELATIONSHIP_DIMENSIONS,
+  "derivedThroughSequence",
+  "engineVersion",
+  "state",
+  "delta",
+  "interactions",
+];
+
+function keysOf(value: unknown, found = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const entry of value) keysOf(entry, found);
+  } else if (value && typeof value === "object") {
+    for (const [key, nested] of Object.entries(value)) {
+      found.add(key);
+      keysOf(nested, found);
+    }
+  }
+  return found;
+}
+
+describe("what the player is told about a person", () => {
+  let run: Run;
+
+  beforeAll(async () => {
+    run = await liveThroughASession({
+      friction: true,
+      stageName: "VIEWKX",
+      title: "SEEN FROM OUTSIDE",
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    await run.close();
+  });
+
+  it("names the person and what they are to this career", async () => {
+    const people = await getPeople(run.test.handle.db, run.careerId);
+
+    expect(people).toHaveLength(1);
+    const lex = people[0]!;
+
+    expect(lex.name).toBe("LEX");
+    expect(lex.role).toBe("Producer");
+    expect(lex.kindLabel).toBe("Creative partner");
+    expect(lex.interactionCount).toBeGreaterThan(0);
+  });
+
+  it("says it in phrases, and never in values", async () => {
+    const people = await getPeople(run.test.handle.db, run.careerId);
+    const lex = people[0]!;
+
+    // The dimension a hard session earned is reported, in words.
+    expect(lex.notes.some((note) => note.dimension === "tension")).toBe(true);
+    expect(lex.line).toMatch(/tension/i);
+
+    // And no dimension value crosses, under any name.
+    const keys = keysOf(people);
+    for (const forbidden of FORBIDDEN_KEYS) {
+      expect(keys.has(forbidden), `the player view exposes "${forbidden}"`).toBe(false);
+    }
+
+    // Not even incidentally, as a formatted string.
+    expect(JSON.stringify(people.map((person) => person.line))).not.toMatch(/[0-9]/);
+  });
+
+  it("can be traced back to the decisions that produced it", async () => {
+    const [lex] = await getPeople(run.test.handle.db, run.careerId);
+
+    const [history, decisions] = await Promise.all([
+      getRelationshipHistory(run.test.handle.db, run.careerId, lex!.subjectId),
+      getRelationshipDecisions(run.test.handle.db, run.careerId, lex!.subjectId),
+    ]);
+
+    // The inspector's side keeps everything the player's side refuses.
+    expect(history.length).toBeGreaterThan(0);
+    expect(history[0]!.state.tension).toBeGreaterThan(0);
+
+    // And the decisions underneath are the ones made in rooms with this person.
+    expect(decisions.map((entry) => entry.decision.decisionType)).toContain(
+      "PRODUCER_PROPOSAL_REJECTED",
+    );
+    expect(decisions.map((entry) => entry.decision.decisionType)).toContain("REVISION_REQUESTED");
+  });
+});

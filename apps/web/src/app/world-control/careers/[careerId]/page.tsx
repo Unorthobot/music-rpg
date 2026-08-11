@@ -8,6 +8,7 @@ import { Label, Surface } from "@music-rpg/ui";
 import { getAppDb } from "@/lib/db";
 import { CareerCausality } from "./causality";
 import { CareerReception } from "./reception";
+import { CareerRelationships } from "./relationships";
 
 /**
  * The inspector view that answers "how did this career come to exist?".
@@ -167,6 +168,8 @@ export default async function WorldControlCareerDetail({
       ) : null}
 
       <CareerCausality db={db} careerId={view.career.id} />
+
+      <CareerRelationships db={db} careerId={view.career.id} />
 
       <CareerReception
         db={db}

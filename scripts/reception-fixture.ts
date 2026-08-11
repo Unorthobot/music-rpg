@@ -19,6 +19,8 @@ import {
   createSoloArtist,
   interpretCreativeDirection,
   loadDiscoveryQuestions,
+  rejectProducerProposals,
+  requestRevision,
   planRelease,
   publishRelease,
   renameTrack,
@@ -58,7 +60,7 @@ export async function buildPublishedRelease(
   ctx: CommandContext,
   db: Database,
   userId: string,
-  options: { strategy?: ReleaseStrategy } = {},
+  options: { strategy?: ReleaseStrategy; friction?: boolean } = {},
 ) {
   const created = unwrap(await createCareer(ctx, { userId }));
   const careerId = created.career.id;
@@ -84,11 +86,36 @@ export async function buildPublishedRelease(
   unwrap(await startCreativeSession(ctx, { sessionId, userId }));
   unwrap(await setCreativeDirection(ctx, { sessionId, userId, direction: DIRECTION }));
 
-  const { proposals } = unwrap(await interpretCreativeDirection(ctx, { sessionId, userId }));
+  let { proposals } = unwrap(await interpretCreativeDirection(ctx, { sessionId, userId }));
+
+  if (options.friction) {
+    unwrap(
+      await rejectProducerProposals(ctx, { sessionId, userId, reason: "None of these are it." }),
+    );
+    proposals = unwrap(await interpretCreativeDirection(ctx, { sessionId, userId })).proposals;
+  }
+
   const chosen = unwrap(
-    await selectProducerProposal(ctx, { sessionId, userId, proposalId: proposals[0]!.id }),
+    await selectProducerProposal(ctx, {
+      sessionId,
+      userId,
+      proposalId: (options.friction ? proposals[1] ?? proposals[0] : proposals[0])!.id,
+    }),
   );
-  const rendered = unwrap(await runGenerationJobToCompletion(ctx, { jobId: chosen.jobId, userId }));
+  let rendered = unwrap(await runGenerationJobToCompletion(ctx, { jobId: chosen.jobId, userId }));
+
+  if (options.friction) {
+    const revision = unwrap(
+      await requestRevision(ctx, {
+        sessionId,
+        userId,
+        kind: "sparser",
+        note: "Strip it back further.",
+        versionId: rendered.version!.id,
+      }),
+    );
+    rendered = unwrap(await runGenerationJobToCompletion(ctx, { jobId: revision.jobId, userId }));
+  }
   const master = unwrap(
     await requestMaster(ctx, { sessionId, userId, versionId: rendered.version!.id }),
   );
