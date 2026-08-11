@@ -40,12 +40,11 @@ and that is the conversation. Nothing anywhere stores trust, tension or loyalty.
 
 The one relationship model that *does* exist is group membership — `influence`,
 `satisfaction`, `commitment`, `soloAmbition`, and a `chemistry` column whose own
-comment admits it is a formation snapshot awaiting real simulation. M6 has to
-decide deliberately whether character relationships and member relationships are
-one model or two. They are not obviously the same thing: a bandmate can leave, a
-producer can decline the next session, and those are different consequences.
+comment admits it is a formation snapshot awaiting real simulation. That is kept
+and given a shared foundation beneath it rather than duplicated; see **The
+model** below.
 
-## Two rules that bound the milestone
+## Three rules that bound the milestone
 
 **1. Relationship state is *derived from history*, never awarded.** The same
 discipline reception held: the decisions are the facts, the state is a reading of
@@ -67,23 +66,56 @@ is already in the codebase: `StatDescriptor` exists precisely to show what a
 hidden number means without showing it, and Sound DNA has never been an editable
 slider.
 
+**3. Derive once, then move incrementally.** A career that predates M6 has its
+relationships reconstructed from the canonical history that already exists — that
+is what makes rule 1 true rather than aspirational. But reconstruction is a
+*migration*, not a read path. Once a relationship exists, actions update it and
+emit relationship events; nothing re-scans a career's whole history to answer
+"what does LEX think of me". Reconstructibility without a runtime that gets
+slower every session the player plays.
+
 ## The model
 
-Persistent, per career and character:
+One relationship framework, with role-specific projections on top. Not a
+producer model and a separate band model: the dimensions below are person-to-
+person and mean the same thing about anybody. What differs by role is which of
+them matter and what they unlock.
+
+```
+RELATIONSHIP                 GROUP MEMBERSHIP
+├── familiarity              ├── influence
+├── respect                  ├── satisfaction
+├── trust                    ├── commitment
+├── loyalty                  └── solo_ambition
+├── creative_chemistry
+├── tension
+└── rivalry
+```
 
 | Dimension | What it answers |
 |---|---|
-| **Trust** | Do they believe you'll follow through? |
+| **Familiarity** | How much history is there at all? |
 | **Respect** | Do they rate what you actually make? |
+| **Trust** | Do they believe you'll follow through? |
+| **Loyalty** | Would they choose you over a better offer? |
 | **Creative chemistry** | Does the work get better when you're both in the room? |
 | **Tension** | What is unresolved between you? |
-| **Loyalty** | Would they choose you over a better offer? |
-| **Familiarity** | How much history is there at all? |
+| **Rivalry** | Are they measuring themselves against you? |
 
-Six dimensions that move for six different reasons, and that must never collapse
-into one score — the same rule Fame, Respect, Heat and Legacy hold on the career.
-Tension in particular is not the inverse of trust: the most productive creative
-relationships carry both.
+Group membership keeps its own four because they describe a member's standing
+with the group *as an institution* rather than sentiment toward a person. A
+bandmate can be personally loyal and still have low commitment to the band, and
+that difference is the whole substance of a line-up falling apart.
+
+**Tension is independent, and stays independent.** It is not the inverse of
+trust and not a penalty meter. A relationship can be high-trust, high-respect,
+high-chemistry *and* high-tension at once — that is where the most interesting
+creative partnerships live, and a model that cannot express it has nothing to
+say about real collaborators.
+
+Seven dimensions that move for seven different reasons, and that must never
+collapse into one score — the same rule Fame, Respect, Heat and Legacy hold on
+the career.
 
 ## Decisions have to cost or earn something
 
@@ -100,11 +132,11 @@ reception, is a different fact from refusing a proposal they were enthusiastic
 about and making something nobody heard. The stance was recorded at the time,
 and M5 now knows how the record did. Both are available.
 
-⚠️ **The M5 golden career accepted the first proposal immediately.** It has no
-rejections, no revisions, no combinations. M6's golden path needs a richer
-creative history than the one the M3/M4/M5 helpers currently build, or the
-milestone will demonstrate its central claim on a career that never exercised
-it.
+**The M5 golden career accepted the first proposal immediately.** It has no
+rejections, no revisions, no combinations — so it is the wrong career to prove
+this on, and the first piece of M6 work is a Studio helper that builds one with
+real friction in it. Testing a relationship engine on a path where nobody
+disagreed would be testing nothing.
 
 ## Crew is not collaboration
 
@@ -128,22 +160,41 @@ reception. Facts first.
 
 ## The golden path
 
-LEX, end to end, through the real commands:
+LEX, end to end, through the real commands — friction included, because that is
+the point:
 
 ```
 choose LEX over two other producers
-→ give a direction he is cautious about
-→ reject his first read
-→ reject the second
-→ take the third, and ask for a revision
-→ master it, release it, simulate three days
-→ it finds the scene
+→ give him a direction
+→ he comes back with three reads
+→ reject the whole set
+→ he pushes back and comes again
+→ take a second-pass idea
+→ ask for a revision
+→ master it
+→ release it, simulate three days
+→ it finds a small but meaningful audience
 → what does LEX think of you now?
 ```
 
-And the control: the same career, accepting immediately, must end somewhere
-visibly different — with the difference explainable from the decisions, not
-asserted.
+That has to be able to derive something with shape to it:
+
+> **LEX** — Creative partner
+> High creative chemistry. Strong respect. Some tension. Growing trust.
+
+rather than *"you worked together once."*
+
+## The golden proof
+
+The relationship equivalent of M5's sensitivity test, and the same two halves:
+
+> **Same two people, different shared history → meaningfully different
+> relationship state, explainable from the recorded events.**
+
+The control is the clean M5 path: chose LEX, accepted immediately, shipped. It
+must land somewhere visibly different from the friction path, and the difference
+must be attributable to specific decisions rather than asserted. Determinism
+alone would be satisfied by an engine that ignored its history.
 
 ## Out of scope
 

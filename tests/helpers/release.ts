@@ -20,10 +20,11 @@ export async function makePublishedRelease(
   test: TestContext,
   user: Pick<UserRow, "id">,
   title: string,
-  options: { strategy?: ReleaseStrategy; stageName?: string } = {},
+  options: { strategy?: ReleaseStrategy; stageName?: string; friction?: boolean } = {},
 ): Promise<{ careerId: string; trackId: string; releaseId: string }> {
   const made = await makeFinishedTrack(test, user, title, {
     ...(options.stageName ? { stageName: options.stageName } : {}),
+    ...(options.friction ? { friction: true } : {}),
   });
 
   const planned = unwrap(

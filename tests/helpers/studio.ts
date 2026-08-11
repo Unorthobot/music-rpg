@@ -7,8 +7,10 @@ import {
   createSoloArtist,
   interpretCreativeDirection,
   loadDiscoveryQuestions,
+  rejectProducerProposals,
   renameTrack,
   requestMaster,
+  requestRevision,
   runGenerationJobToCompletion,
   saveDiscoveryAnswer,
   saveTrackToCatalogue,
@@ -47,11 +49,28 @@ const ANSWERS: Record<string, string> = {
   q_statement: "hear what I left out",
 };
 
+export type FinishedTrackOptions = {
+  producerSlug?: string;
+  stageName?: string;
+  /**
+   * Put friction in the history.
+   *
+   * The clean path takes the producer's first read and ships it, which is a
+   * career in which nobody ever disagreed about anything. Milestones that
+   * reason about *what happened between two people* need a session with real
+   * shape to it: a set refused, a second pass taken, a revision asked for.
+   *
+   * Every step still goes through the real commands, so what gets recorded is
+   * exactly what a player doing the same thing would leave behind.
+   */
+  friction?: boolean;
+};
+
 export async function makeFinishedTrack(
   test: TestContext,
   user: Pick<UserRow, "id">,
   title: string,
-  options: { producerSlug?: string; stageName?: string } = {},
+  options: FinishedTrackOptions = {},
 ): Promise<{ careerId: string; trackId: string; sessionId: string }> {
   const career = unwrap(await createCareer(test.ctx, { userId: user.id }));
   const careerId = career.career.id;
@@ -96,21 +115,53 @@ export async function makeFinishedTrack(
   unwrap(await startCreativeSession(test.ctx, { sessionId, userId: user.id }));
   unwrap(await setCreativeDirection(test.ctx, { sessionId, userId: user.id, direction: DIRECTION }));
 
-  const { proposals } = unwrap(
+  let { proposals } = unwrap(
     await interpretCreativeDirection(test.ctx, { sessionId, userId: user.id }),
   );
+
+  if (options.friction) {
+    // Refuse the whole set. The producer goes away and comes back with a
+    // different read — the round is what makes the second pass different.
+    unwrap(
+      await rejectProducerProposals(test.ctx, {
+        sessionId,
+        userId: user.id,
+        reason: "None of these are it.",
+      }),
+    );
+    proposals = unwrap(
+      await interpretCreativeDirection(test.ctx, { sessionId, userId: user.id }),
+    ).proposals;
+  }
 
   const chosen = unwrap(
     await selectProducerProposal(test.ctx, {
       sessionId,
       userId: user.id,
-      proposalId: proposals[0]!.id,
+      // On the second pass, take their angle rather than the literal ask.
+      proposalId: (options.friction ? proposals[1] ?? proposals[0] : proposals[0])!.id,
     }),
   );
 
-  const rendered = unwrap(
+  let rendered = unwrap(
     await runGenerationJobToCompletion(test.ctx, { jobId: chosen.jobId, userId: user.id }),
   );
+
+  if (options.friction) {
+    // Take it, then ask for it to be different anyway.
+    const revision = unwrap(
+      await requestRevision(test.ctx, {
+        sessionId,
+        userId: user.id,
+        kind: "sparser",
+        note: "Strip it back further.",
+        versionId: rendered.version!.id,
+      }),
+    );
+    rendered = unwrap(
+      await runGenerationJobToCompletion(test.ctx, { jobId: revision.jobId, userId: user.id }),
+    );
+  }
 
   const master = unwrap(
     await requestMaster(test.ctx, {
