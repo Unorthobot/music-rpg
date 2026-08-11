@@ -1,9 +1,18 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { eq, releases, trackVersions, tracks } from "@music-rpg/database";
-import { getCatalogue } from "@music-rpg/domain";
-import { RELEASE_STRATEGY_PROFILES, RELEASE_STRATEGIES } from "@music-rpg/shared";
-import { Button, Label, Surface, Tag } from "@music-rpg/ui";
+import { getCatalogue, getReleaseReception } from "@music-rpg/domain";
+import { RELEASE_STRATEGY_PROFILES, RELEASE_STRATEGIES, formatCount } from "@music-rpg/shared";
+import {
+  AwaitingReception,
+  Button,
+  CohortResponse,
+  Label,
+  ReceptionHeadline,
+  ReceptionTrail,
+  Surface,
+  Tag,
+} from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { PlayButton } from "@/components/player/play-button";
 import { getAppDb } from "@/lib/db";
@@ -47,6 +56,10 @@ export default async function TrackPage({
   const master = versions.find((version) => version.id === trackRow.currentMasterVersionId);
   const release = releaseRows.find((row) => row.status !== "CANCELLED") ?? null;
   const isOut = trackRow.status === "RELEASED";
+
+  // Null until a day has actually been simulated: a record that is out and
+  // unsimulated has no reception, which is not the same as a reception of zero.
+  const reception = isOut && release ? await getReleaseReception(db, release.id) : null;
 
   return (
     <AppShell
@@ -96,18 +109,69 @@ export default async function TrackPage({
       </Surface>
 
       {isOut ? (
-        <Surface level={2} padded="lg" className="flex flex-col gap-2 border-ember-line">
-          <Label>Out in the world</Label>
-          <p className="text-base text-ink">
-            It exists publicly now. Nobody has reacted yet — that comes later.
-          </p>
-          <Link
-            href={`/world/${view.world.slug}/track/${trackRow.id}`}
-            className="text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
-          >
-            See its public page
-          </Link>
-        </Surface>
+        <>
+          {/*
+            How the record is landing. Counts of people and phrases the
+            simulation classified — no fit, no weights, no momentum figure. The
+            arithmetic behind any of it lives in World Control.
+          */}
+          {reception ? (
+            <>
+              <ReceptionHeadline
+                headline={reception.headline}
+                detail={reception.detail}
+                insight={reception.insight}
+                figures={[
+                  { label: "Unique listeners", value: formatCount(reception.uniqueListeners) },
+                  { label: "Fans gained", value: formatCount(reception.fansGained) },
+                  { label: "Engaged listeners", value: formatCount(reception.engagedListeners) },
+                  { label: "Returners", value: formatCount(reception.returningListeners) },
+                ]}
+              />
+
+              <section className="flex flex-col gap-3">
+                <Label>Who&rsquo;s responding</Label>
+                <div className="flex flex-col gap-2">
+                  {reception.cohorts.map((cohort) => (
+                    <CohortResponse
+                      key={cohort.name}
+                      name={cohort.name}
+                      responseLabel={cohort.responseLabel}
+                      leading={cohort.response === "STRONG"}
+                      uniqueListeners={cohort.uniqueListeners}
+                      fansGained={cohort.fansGained}
+                      shares={cohort.shares}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section className="flex flex-col gap-3">
+                <Label>
+                  {reception.daysOut} {reception.daysOut === 1 ? "day" : "days"} out
+                </Label>
+                <Surface level={1} padded="lg" className="flex flex-col gap-4">
+                  <ReceptionTrail days={reception.days} />
+                  <p className="text-sm text-ink-muted border-t border-line-subtle pt-3">
+                    {reception.momentumLabel}.
+                  </p>
+                </Surface>
+              </section>
+            </>
+          ) : (
+            <AwaitingReception title={trackRow.title ?? "Untitled"} />
+          )}
+
+          <Surface level={1} padded="lg" className="flex flex-col gap-2">
+            <Label>Out in the world</Label>
+            <Link
+              href={`/world/${view.world.slug}/track/${trackRow.id}`}
+              className="text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+            >
+              See its public page
+            </Link>
+          </Surface>
+        </>
       ) : !release ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <Surface level={1} padded="lg" className="flex flex-col gap-3">

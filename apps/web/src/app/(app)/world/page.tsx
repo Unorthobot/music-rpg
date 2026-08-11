@@ -9,6 +9,16 @@ import { ACT_LABELS, requireCareer } from "@/lib/career";
 
 export const metadata = { title: "World" };
 
+const DAY = 24 * 60 * 60 * 1000;
+
+/** How long a record has been out, in in-world days. Public, and no more. */
+function daysOutLabel(releasedAt: Date, now: Date): string {
+  const days = Math.max(0, Math.floor((now.getTime() - new Date(releasedAt).getTime()) / DAY));
+  if (days === 0) return "Released today";
+  if (days === 1) return "Released yesterday";
+  return `Released ${days} days ago`;
+}
+
 /**
  * World.
  *
@@ -55,7 +65,8 @@ export default async function WorldPage() {
             })}
           </p>
           <p className="text-sm text-ink-muted">
-            Time moves when your career does. Nothing has moved it yet.
+            Time moves when your career does — and once something of yours is out, letting a day
+            pass is how you find out who heard it.
           </p>
         </Surface>
       }
@@ -86,6 +97,9 @@ export default async function WorldPage() {
                       </span>
                       <span className="text-xs text-ink-subtle">
                         {trackRow.ownerType === "GROUP" ? "Group release" : "Solo release"}
+                        {trackRow.releasedAt
+                          ? ` · ${daysOutLabel(trackRow.releasedAt, view.career.currentGameDate)}`
+                          : ""}
                       </span>
                     </span>
                     <Tag tone="ember">Out now</Tag>
@@ -94,8 +108,13 @@ export default async function WorldPage() {
               </li>
             ))}
           </ul>
+          {/*
+            The world is told that a record exists and roughly how long it has
+            been out. How it is doing is the artist's own business — listeners,
+            fans and who is responding stay behind the career that made it.
+          */}
           <p className="text-sm text-ink-muted">
-            How any of it is received is a later milestone. Right now it simply exists.
+            The scene can find all of this. What it does with it is up to the scene.
           </p>
         </section>
       )}

@@ -1,8 +1,10 @@
-import { formatMoney } from "@music-rpg/shared";
+import { formatCount, formatMoney } from "@music-rpg/shared";
 import { describeStat, soundAxisWords, topSkills } from "@music-rpg/simulation";
 import { SOUND_DIMENSIONS } from "@music-rpg/shared";
-import { CareerMetric, Label, StatDescriptor, Surface, Tag } from "@music-rpg/ui";
+import { getCareerPulse } from "@music-rpg/domain";
+import { CareerMetric, Label, PulseMetric, StatDescriptor, Surface, Tag } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
+import { getAppDb } from "@/lib/db";
 import { ACT_LABELS, ACT_LINES, requireCareer } from "@/lib/career";
 
 export const metadata = { title: "Career" };
@@ -19,6 +21,12 @@ export default async function CareerPage() {
   const act = view.career.careerAct;
   const entity = view.entity;
   const sound = entity?.sound ?? null;
+
+  const db = await getAppDb();
+  const pulse = await getCareerPulse(db, view.career);
+
+  const levelOf = (key: "FAME" | "RESPECT" | "HEAT" | "LEGACY"): string =>
+    pulse.metrics.find((metric) => metric.key === key)?.level ?? "";
 
   return (
     <AppShell
@@ -66,10 +74,72 @@ export default async function CareerPage() {
       </section>
 
       <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <CareerMetric label="Fame" value={String(view.career.fame)} tone="fame" />
-        <CareerMetric label="Respect" value={String(view.career.respect)} tone="respect" />
-        <CareerMetric label="Heat" value={String(view.career.heat)} tone="heat" />
-        <CareerMetric label="Legacy" value={String(view.career.legacy)} tone="legacy" />
+        <CareerMetric
+          label="Fame"
+          value={String(view.career.fame)}
+          descriptor={levelOf("FAME")}
+          tone="fame"
+        />
+        <CareerMetric
+          label="Respect"
+          value={String(view.career.respect)}
+          descriptor={levelOf("RESPECT")}
+          tone="respect"
+        />
+        <CareerMetric
+          label="Heat"
+          value={String(view.career.heat)}
+          descriptor={levelOf("HEAT")}
+          tone="heat"
+        />
+        <CareerMetric
+          label="Legacy"
+          value={String(view.career.legacy)}
+          descriptor={levelOf("LEGACY")}
+          tone="legacy"
+        />
+      </section>
+
+      {/*
+        What the last week did. Four currencies that move for four different
+        reasons, each reported as a direction — and Legacy reported as unchanged
+        rather than omitted, because the restraint is the statement.
+      */}
+      <section className="flex flex-col gap-3">
+        <Label>This week</Label>
+        <Surface level={1} padded="lg" className="flex flex-col gap-3">
+          {pulse.quiet ? (
+            <p className="text-sm text-ink-muted">
+              Nothing has reached anybody this week. Put something out, or let a day pass.
+            </p>
+          ) : (
+            <p className="text-base text-ink">
+              +{pulse.fansGained} {pulse.fansGained === 1 ? "fan" : "fans"} ·{" "}
+              {formatCount(pulse.newListeners)}{" "}
+              {pulse.newListeners === 1 ? "listener" : "listeners"}
+            </p>
+          )}
+          <div className="border-t border-line-subtle pt-1">
+            {pulse.metrics.map((metric) => (
+              <PulseMetric
+                key={metric.key}
+                label={metric.label}
+                level={metric.level}
+                movementLabel={metric.movementLabel}
+                moved={metric.movement !== "UNCHANGED"}
+                tone={
+                  metric.key === "FAME"
+                    ? "fame"
+                    : metric.key === "RESPECT"
+                      ? "respect"
+                      : metric.key === "HEAT"
+                        ? "heat"
+                        : "legacy"
+                }
+              />
+            ))}
+          </div>
+        </Surface>
       </section>
 
       <section className="flex flex-col gap-3">

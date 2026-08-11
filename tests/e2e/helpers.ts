@@ -69,8 +69,16 @@ export async function makeTrack(page: Page, title: string): Promise<void> {
 /** Plan → shape → approach → date → out. */
 export async function releaseTrack(page: Page, title: string): Promise<string> {
   await page.goto("/catalogue");
-  await expect(page.getByText(title)).toBeVisible();
-  await page.getByText(title).click();
+
+  /*
+   * Scoped to the page's own content. A loaded track's title also sits in the
+   * mini-player inside the primary navigation, so an unscoped lookup matches
+   * twice whenever the player is holding this track — which depends on where
+   * the spec happened to navigate beforehand.
+   */
+  const inCatalogue = page.getByRole("main").getByText(title, { exact: true }).first();
+  await expect(inCatalogue).toBeVisible();
+  await inCatalogue.click();
   await page.waitForURL("**/catalogue/**");
 
   // Unreleased work offers exactly two doors.

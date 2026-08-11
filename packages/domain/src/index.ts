@@ -25,6 +25,7 @@ export * from "./queries/studio";
 export * from "./queries/onboarding";
 export * from "./queries/public-profile";
 export * from "./queries/reception";
+export * from "./queries/reception-view";
 
 export {
   loadDiscoveryQuestions,

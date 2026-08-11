@@ -37,6 +37,8 @@ import {
   createFirstContact,
   createSoloArtist,
   getCareerCounters,
+  getCareerPulse,
+  getReleaseReception,
   interpretCreativeDirection,
   loadDiscoveryQuestions,
   planRelease,
@@ -57,91 +59,13 @@ import {
   type CommandContext,
 } from "@music-rpg/domain";
 import { DevelopmentModerationService } from "@music-rpg/moderation";
+import { buildPublishedRelease } from "./reception-fixture";
 import {
   unwrap,
   type CreativeDirection,
   type ReceptionTickResult,
   type ReleaseStrategy,
 } from "@music-rpg/shared";
-
-const DIRECTION: CreativeDirection = {
-  intention: "story",
-  moods: ["tense", "introspective"],
-  energy: 38,
-  risk: 70,
-  audience: "scene",
-  note: "Driving through Joburg at 2am. Empty city.",
-};
-
-const ANSWERS: Record<string, string> = {
-  q_aux: "listen",
-  q_matters: "story",
-  q_challenged: "devastating",
-  q_environment: "bedroom",
-  q_statement: "hear what I left out",
-};
-
-async function buildPublishedRelease(
-  ctx: CommandContext,
-  db: Database,
-  userId: string,
-  options: { strategy?: ReleaseStrategy } = {},
-) {
-  const created = unwrap(await createCareer(ctx, { userId }));
-  const careerId = created.career.id;
-
-  unwrap(await selectCareerType(ctx, { careerId, userId, careerType: "SOLO" }));
-  unwrap(await createSoloArtist(ctx, { careerId, userId, stageName: "KXMO" }));
-
-  for (const question of await loadDiscoveryQuestions(db, "SOLO")) {
-    const value = ANSWERS[question.id];
-    if (value) {
-      unwrap(await saveDiscoveryAnswer(ctx, { careerId, userId, questionId: question.id, value }));
-    }
-  }
-
-  unwrap(await completeSoundDiscovery(ctx, { careerId, userId }));
-  unwrap(await completeCareerOnboarding(ctx, { careerId, userId }));
-  unwrap(await createFirstContact(ctx, { careerId, userId }));
-
-  const [producer] = await db.select().from(characters).where(eq(characters.slug, "lex"));
-  const selection = unwrap(await selectProducer(ctx, { careerId, userId, producerId: producer!.id }));
-  const sessionId = selection.session.id;
-
-  unwrap(await startCreativeSession(ctx, { sessionId, userId }));
-  unwrap(await setCreativeDirection(ctx, { sessionId, userId, direction: DIRECTION }));
-
-  const { proposals } = unwrap(await interpretCreativeDirection(ctx, { sessionId, userId }));
-  const chosen = unwrap(
-    await selectProducerProposal(ctx, { sessionId, userId, proposalId: proposals[0]!.id }),
-  );
-  const rendered = unwrap(await runGenerationJobToCompletion(ctx, { jobId: chosen.jobId, userId }));
-  const master = unwrap(
-    await requestMaster(ctx, { sessionId, userId, versionId: rendered.version!.id }),
-  );
-  unwrap(await runGenerationJobToCompletion(ctx, { jobId: master.jobId, userId }));
-
-  unwrap(await renameTrack(ctx, { sessionId, userId, title: "NO RECEPTION" }));
-  const saved = unwrap(await saveTrackToCatalogue(ctx, { sessionId, userId }));
-
-  const planned = unwrap(
-    await planRelease(ctx, { careerId, userId, trackId: saved.track.id, format: "SINGLE" }),
-  );
-  const releaseId = planned.release.id;
-
-  unwrap(
-    await setReleaseStrategy(ctx, {
-      careerId,
-      userId,
-      releaseId,
-      strategy: options.strategy ?? "DROP",
-    }),
-  );
-  unwrap(await scheduleRelease(ctx, { careerId, userId, releaseId }));
-  unwrap(await publishRelease(ctx, { careerId, userId, releaseId }));
-
-  return { careerId, releaseId, trackId: saved.track.id };
-}
 
 function pad(value: string | number, width: number): string {
   return String(value).padStart(width);
@@ -368,6 +292,47 @@ async function main() {
   console.log(
     `  accrued: fame ${pressure!.fameAccrued.toFixed(4)} · respect ${pressure!.respectAccrued.toFixed(4)} · heat ${pressure!.heatAccrued.toFixed(4)}`,
   );
+
+  /*
+   * The same three days, in the words the player actually gets. Printed beside
+   * the raw output so the two can be read against each other — if a phrase ever
+   * says something the numbers above do not, it is visible here first.
+   */
+  const [player, pulse] = await Promise.all([
+    getReleaseReception(handle.db, releaseId),
+    getCareerPulse(handle.db, { id: careerId, currentGameDate: career!.currentGameDate }),
+  ]);
+
+  console.log("\n" + "=".repeat(104));
+  console.log("AS THE PLAYER SEES IT");
+  console.log("=".repeat(104));
+  console.log(`\n  ${player!.headline}`);
+  console.log(`  ${player!.detail}`);
+  console.log(
+    `  ${player!.uniqueListeners} unique listeners · ${player!.fansGained} new fans · ${player!.engagedListeners} engaged · ${player!.returningListeners} returners`,
+  );
+  console.log(`  ${player!.insight ?? "(no insight — the cohorts are too close to call)"}`);
+  console.log(`  momentum: ${player!.momentumLabel}`);
+
+  console.log("\n  WHO'S RESPONDING");
+  for (const cohort of player!.cohorts) {
+    console.log(
+      `    ${cohort.name.padEnd(18)} ${cohort.responseLabel.padEnd(26)} ${cohort.uniqueListeners} listeners · ${cohort.fansGained} fans · ${cohort.shares} shares`,
+    );
+  }
+
+  console.log("\n  DAY BY DAY");
+  for (const day of player!.days) {
+    console.log(
+      `    Day ${day.dayIndex}  ${day.line.padEnd(34)} ${day.cumulativeListeners} listeners · ${day.cumulativeFans} fans`,
+    );
+  }
+
+  console.log("\n  CAREER PULSE");
+  console.log(`    +${pulse.fansGained} fans · ${pulse.newListeners} listeners`);
+  for (const metric of pulse.metrics) {
+    console.log(`    ${metric.label.padEnd(9)} ${metric.movementLabel.padEnd(11)} (${metric.level})`);
+  }
 
   if (persistAt) {
     console.log(`\n  career id: ${careerId}`);

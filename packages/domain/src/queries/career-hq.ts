@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import {
   calendarItems,
   characters,
@@ -7,6 +7,7 @@ import {
   npcConversations,
   npcMessages,
   opportunities,
+  tracks,
   transactions,
   type CalendarItemRow,
   type CharacterRow,
@@ -35,6 +36,8 @@ export type RightNow = {
     | "SESSION_READY"
     | "SESSION_IN_PROGRESS"
     | "TRACK_COMPLETE"
+    /** Out, and the world is deciding. */
+    | "AWAITING_RECEPTION"
     | "NOTHING";
   title: string;
   detail: string;
@@ -123,6 +126,12 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
   const nextCalendarItem =
     calendarRows.find((item) => item.status === "SCHEDULED" || item.status === "ACTIVE") ?? null;
   const tracksCreated = trackRows[0]?.value ?? 0;
+  const releasedTracks = await countOf(
+    db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(tracks)
+      .where(and(eq(tracks.careerId, career.id), isNotNull(tracks.releasedAt))),
+  );
 
   const rightNow = resolveRightNow({
     hasConversation: conversationRows.length > 0,
@@ -130,6 +139,7 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
     opportunity,
     activeSession,
     tracksCreated,
+    releasedTracks,
     conversationId: conversationRows[0]?.conversation.id ?? null,
     producerName: conversationRows[0]?.character.name ?? "someone",
   });
@@ -156,6 +166,7 @@ function resolveRightNow(input: {
   opportunity: OpportunityRow | null;
   activeSession: CreativeSessionRow | null;
   tracksCreated: number;
+  releasedTracks: number;
   conversationId: string | null;
   producerName: string;
 }): RightNow {
@@ -196,6 +207,22 @@ function resolveRightNow(input: {
       detail: "Pick the one you'd actually want in the room.",
       href: "/opportunities/producers",
       cta: "See who's available",
+    };
+  }
+
+  /*
+   * Once something is out, the honest next step is waiting on it. "Nobody has
+   * heard it yet" was true for the whole of M4 and became a contradiction the
+   * moment reception existed — it would sit directly beneath a card reporting
+   * how many people have heard it.
+   */
+  if (input.releasedTracks > 0) {
+    return {
+      kind: "AWAITING_RECEPTION",
+      title: "Your record is out in the world.",
+      detail: "What happens next isn't yours to decide. Let the days do their work.",
+      href: "/catalogue",
+      cta: "See your catalogue",
     };
   }
 

@@ -7,6 +7,7 @@
 export * from "./constants";
 export * from "./audience";
 export * from "./evaluate";
+export * from "./interpret";
 export * from "./exposure";
 export * from "./engagement";
 export * from "./conversion";

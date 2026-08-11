@@ -36,9 +36,16 @@ test("solo: plan a release, put it out, and keep playing while you move around",
 
   await makeTrack(page, "NO RECEPTION");
 
-  // Before release, the world has nothing to find.
+  /*
+   * Before release, the world cannot find *this* record.
+   *
+   * Not "the city is empty": the world feed is shared by every career in it, so
+   * whether Johannesburg is quiet depends on which specs ran first. What is
+   * actually being claimed is that unreleased work is undiscoverable, and that
+   * claim survives other people releasing things.
+   */
   await page.goto("/world");
-  await expect(page.getByText("The scene is quiet for now.")).toBeVisible();
+  await expect(page.getByRole("main").getByText("NO RECEPTION", { exact: true })).toHaveCount(0);
 
   // Projects are visible and honestly locked, not hidden.
   await page.goto("/catalogue/projects");
@@ -50,12 +57,16 @@ test("solo: plan a release, put it out, and keep playing while you move around",
   // --- the world can discover it ----------------------------------------
   await page.goto("/world");
   await expect(page.getByText("Out in Johannesburg")).toBeVisible();
-  await expect(page.getByText("NO RECEPTION")).toBeVisible();
-  await expect(page.getByText("Solo release")).toBeVisible();
+
+  // Scoped to this record's own row: the feed is shared, so "a solo release is
+  // listed" is not the same claim as "this one is".
+  const listing = page.getByRole("main").getByRole("link", { name: /NO RECEPTION/ }).first();
+  await expect(listing).toBeVisible();
+  await expect(listing).toContainText("Solo release");
 
   // --- playback survives navigation --------------------------------------
   await page.goto("/catalogue");
-  await page.getByText("NO RECEPTION").click();
+  await page.getByRole("main").getByText("NO RECEPTION", { exact: true }).first().click();
   await page.waitForURL("**/catalogue/**");
 
   const main = page.locator("main");

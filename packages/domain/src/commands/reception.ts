@@ -426,6 +426,70 @@ export async function simulateReceptionTick(
   });
 }
 
+/* ------------------------------------------------------------ advance a day */
+
+export type AdvanceDayResult = {
+  /** Every release that moved forward, in the order they were simulated. */
+  ticks: SimulateReceptionResult[];
+  gameTime: Date;
+};
+
+/**
+ * Move the career forward one in-world day.
+ *
+ * This is the player-facing shape of a tick: reception is something that
+ * happens *over time*, and a record whose whole life resolved the moment it was
+ * published would have no trajectory to watch. One press, one day, for every
+ * record currently out.
+ *
+ * Idempotent per release-day by the same ledger key the tick uses, so a
+ * double-submitted form advances the world once.
+ */
+export async function advanceCareerDay(
+  ctx: CommandContext,
+  input: { careerId: string; userId: string },
+): Promise<Result<AdvanceDayResult, DomainError>> {
+  const careerResult = await loadOwnedCareer(ctx.db, input.careerId, input.userId);
+  if (!careerResult.ok) return careerResult;
+  const career = careerResult.value;
+
+  const releaseRows = await ctx.db
+    .select()
+    .from(releases)
+    .where(and(eq(releases.careerId, career.id), eq(releases.status, "RELEASED")))
+    .orderBy(releases.releasedGameTime);
+
+  if (releaseRows.length === 0) {
+    return err(
+      DomainErrors.invalidCareerState("Nothing of yours is out yet, so there's nothing to wait on."),
+    );
+  }
+
+  const ticks: SimulateReceptionResult[] = [];
+
+  for (const release of releaseRows) {
+    const tick = await simulateReceptionTick(ctx, {
+      careerId: career.id,
+      userId: input.userId,
+      releaseId: release.id,
+    });
+    // One release refusing (nothing finished behind it, say) must not stop the
+    // others: the day still happened.
+    if (tick.ok) ticks.push(tick.value);
+  }
+
+  if (ticks.length === 0) {
+    return err(DomainErrors.invalidCareerState("Nothing moved forward."));
+  }
+
+  const latest = ticks.reduce(
+    (newest, tick) => (tick.gameTime > newest ? tick.gameTime : newest),
+    ticks[0]!.gameTime,
+  );
+
+  return ok({ ticks, gameTime: latest });
+}
+
 /* --------------------------------------------------------------- writers */
 
 type Tx = Parameters<Parameters<CommandContext["db"]["transaction"]>[0]>[0];
