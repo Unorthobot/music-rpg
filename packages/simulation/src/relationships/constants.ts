@@ -117,6 +117,29 @@ export const TENSION_WORK_ABANDONED = 25;
 export const TENSION_SETTLED_BY_RELEASE = -2;
 export const TENSION_SETTLED_BY_RECEPTION = -3;
 
+/* --- Crew: a standing arrangement, not a session -------------------------- */
+
+/**
+ * Saying yes to being crew is the largest single loyalty movement in the model,
+ * because it is the one act that is explicitly about commitment rather than
+ * about a piece of work. Everything else is earned sideways.
+ */
+export const LOYALTY_JOINED_CREW = 18;
+export const TRUST_JOINED_CREW = 8;
+export const FAMILIARITY_JOINED_CREW = 3;
+
+/**
+ * Being turned down is not a wound. They said no to a standing arrangement,
+ * not to you — it leaves a little tension and nothing else, and asking was
+ * still a signal that you rate them.
+ */
+export const TENSION_DECLINED_CREW = 6;
+export const RESPECT_DECLINED_CREW = 1;
+
+/** Walking out of a crew is the one thing that costs loyalty outright. */
+export const LOYALTY_LEFT_CREW = -30;
+export const TENSION_LEFT_CREW = 20;
+
 /* --- Bounds --------------------------------------------------------------- */
 
 export const RELATIONSHIP_FLOOR = 0;

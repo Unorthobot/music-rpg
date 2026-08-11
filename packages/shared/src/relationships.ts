@@ -106,6 +106,12 @@ export const INTERACTION_KINDS = [
   "WORK_RECEIVED",
   /** Started and walked away from. */
   "WORK_ABANDONED",
+  /** Asked to be part of the crew, and said yes. */
+  "JOINED_CREW",
+  /** Asked, and said no. */
+  "DECLINED_CREW",
+  /** Was in the crew, and left. */
+  "LEFT_CREW",
 ] as const;
 export type InteractionKind = (typeof INTERACTION_KINDS)[number];
 
@@ -137,4 +143,51 @@ export type RelationshipSummary = {
   notes: RelationshipNote[];
   /** Those notes as one line: "Exceptional chemistry. Growing tension." */
   line: string;
+};
+
+/* --- Crew ----------------------------------------------------------------- */
+
+/**
+ * Crew is not collaboration.
+ *
+ * Working with somebody once makes them a collaborator. Being crew is a
+ * standing arrangement that had to be asked for, agreed to, and given terms —
+ * "we worked together" and "you are part of my team" are different facts, and
+ * later systems (availability, compensation, who is expected to show up when
+ * this gets bigger) only make sense if the game knows which one it is looking
+ * at.
+ */
+export const CREW_STATUSES = ["INVITED", "ACTIVE", "DECLINED", "LEFT"] as const;
+export type CrewStatus = (typeof CREW_STATUSES)[number];
+
+/** What was actually offered. Recorded, because terms are part of the deal. */
+export const CREW_ARRANGEMENTS = ["SESSION_RATE", "REVENUE_SHARE", "FAVOUR"] as const;
+export type CrewArrangement = (typeof CREW_ARRANGEMENTS)[number];
+
+export type CrewTerms = {
+  arrangement: CrewArrangement;
+  /** The player's own words, where they gave any. */
+  note?: string | null;
+};
+
+export const CREW_ARRANGEMENT_LABELS: Record<CrewArrangement, string> = {
+  SESSION_RATE: "Paid by the session",
+  REVENUE_SHARE: "A share of what it makes",
+  FAVOUR: "On the strength of the work",
+};
+
+/** Whether somebody can be asked at all, and why not. */
+export type CrewEligibility = {
+  eligible: boolean;
+  /** In the player's language. Null when they can be asked. */
+  reason: string | null;
+};
+
+/** Their answer, and the reasoning behind it. */
+export type CrewDecision = {
+  accepted: boolean;
+  /** Something they would actually say. */
+  line: string;
+  /** Why, for the inspector. Never shown to the player as a number. */
+  factors: Record<string, number>;
 };

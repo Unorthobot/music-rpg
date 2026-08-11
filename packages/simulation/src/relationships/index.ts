@@ -6,5 +6,6 @@
  * persistence; this decides what two people make of each other.
  */
 export * from "./constants";
+export * from "./crew";
 export * from "./derive";
 export * from "./describe";

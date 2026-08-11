@@ -3,7 +3,10 @@ import { characters, eq, gameEvents, relationships, type UserRow } from "@music-
 import { GameEventType } from "@music-rpg/events";
 import {
   advanceCareerDay,
+  getCrew,
+  getCrewEligibility,
   getPeople,
+  inviteToCrew,
   getRelationshipDecisions,
   getRelationshipHistory,
   syncCareerRelationships,
@@ -320,5 +323,156 @@ describe("what the player is told about a person", () => {
       "PRODUCER_PROPOSAL_REJECTED",
     );
     expect(decisions.map((entry) => entry.decision.decisionType)).toContain("REVISION_REQUESTED");
+  });
+});
+
+/**
+ * Crew is a different thing from collaboration.
+ *
+ * The distinction the milestone exists to draw: working with LEX makes him a
+ * collaborator, and nothing more. Being crew has to be asked for, agreed to,
+ * and given terms — and he is allowed to say no.
+ */
+describe("becoming crew", () => {
+  let run: Run;
+
+  beforeAll(async () => {
+    run = await liveThroughASession({
+      friction: true,
+      stageName: "CREWKX",
+      title: "WORTH THE TIME",
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    await run.close();
+  });
+
+  const lex = async () => {
+    const [row] = await run.test.handle.db
+      .select()
+      .from(characters)
+      .where(eq(characters.slug, "lex"));
+    return row!;
+  };
+
+  it("does not make somebody crew just because you worked with them", async () => {
+    // A finished record, a release, three days of reception — and no crew.
+    const crew = await getCrew(run.test.ctx, run.careerId);
+    expect(crew).toHaveLength(0);
+
+    // The relationship is real, though. Collaborator, not team.
+    const people = await getPeople(run.test.handle.db, run.careerId);
+    expect(people).toHaveLength(1);
+  });
+
+  it("refuses to ask somebody the career has never worked with", async () => {
+    const [thabo] = await run.test.handle.db
+      .select()
+      .from(characters)
+      .where(eq(characters.slug, "thabo"));
+
+    const eligibility = await getCrewEligibility(run.test.ctx, {
+      careerId: run.careerId,
+      subjectId: thabo!.id,
+    });
+
+    expect(eligibility.eligible).toBe(false);
+    expect(eligibility.reason).toMatch(/haven't worked together/i);
+
+    const result = await inviteToCrew(run.test.ctx, {
+      careerId: run.careerId,
+      userId: run.userId,
+      subjectId: thabo!.id,
+      arrangement: "SESSION_RATE",
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("lets a real collaborator be asked, and answers in their own voice", async () => {
+    const producer = await lex();
+
+    const eligibility = await getCrewEligibility(run.test.ctx, {
+      careerId: run.careerId,
+      subjectId: producer.id,
+    });
+    expect(eligibility.eligible).toBe(true);
+
+    const result = unwrap(
+      await inviteToCrew(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+        subjectId: producer.id,
+        arrangement: "REVENUE_SHARE",
+        note: "I want you on everything.",
+      }),
+    );
+
+    expect(result.accepted).toBe(true);
+    expect(result.line).toBeTruthy();
+    expect(result.line).not.toMatch(/[0-9]/);
+
+    // The terms are part of the deal, so they are kept.
+    expect(result.member.status).toBe("ACTIVE");
+    expect(result.member.terms.arrangement).toBe("REVENUE_SHARE");
+    expect(result.member.terms.note).toBe("I want you on everything.");
+    expect(result.member.joinedAtGameTime).toBeTruthy();
+
+    const crew = await getCrew(run.test.ctx, run.careerId);
+    expect(crew).toHaveLength(1);
+    expect(crew[0]!.character!.name).toBe("LEX");
+  });
+
+  it("moves loyalty through the fold, not by writing it directly", async () => {
+    const before = (await getPeople(run.test.handle.db, run.careerId))[0]!;
+
+    const [rowBefore] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    // Joining is a canonical event; the derivation is what reads it.
+    unwrap(
+      await syncCareerRelationships(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+      }),
+    );
+
+    const [rowAfter] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    /*
+     * Loyalty is the dimension a standing arrangement is allowed to move, and
+     * the one no run of good sessions could. It was near-nothing after a single
+     * session and is not any more.
+     */
+    expect(rowBefore!.loyalty).toBeLessThan(10);
+    expect(rowAfter!.loyalty - rowBefore!.loyalty).toBeGreaterThan(15);
+    expect(rowAfter!.trust).toBeGreaterThan(rowBefore!.trust);
+
+    /*
+     * The line the player reads does not have to change, and here it does not.
+     * Agreeing to something is not the same as instantly thinking more of
+     * somebody — what changed is what LEX has committed to, and that shows up
+     * as crew membership rather than as a new phrase about the relationship.
+     */
+    const after = (await getPeople(run.test.handle.db, run.careerId))[0]!;
+    expect(after.subjectId).toBe(before.subjectId);
+    expect(after.interactionCount).toBeGreaterThan(before.interactionCount);
+  });
+
+  it("will not be asked twice", async () => {
+    const producer = await lex();
+
+    const eligibility = await getCrewEligibility(run.test.ctx, {
+      careerId: run.careerId,
+      subjectId: producer.id,
+    });
+
+    expect(eligibility.eligible).toBe(false);
+    expect(eligibility.reason).toMatch(/already with you/i);
   });
 });

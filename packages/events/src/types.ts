@@ -86,6 +86,11 @@ export const GameEventType = {
    * by how much — the audit trail for a state the player only sees as a phrase.
    */
   RelationshipChanged: "relationship.changed",
+  /** Somebody was asked to join. Asking is its own act, and it is recorded. */
+  CrewInvited: "crew.invited",
+  CrewJoined: "crew.joined",
+  CrewDeclined: "crew.declined",
+  CrewLeft: "crew.left",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -151,6 +156,10 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "reception.tick_completed": "Reception simulated",
 
   "relationship.changed": "A relationship shifted",
+  "crew.invited": "Asked to join",
+  "crew.joined": "Joined the crew",
+  "crew.declined": "Turned it down",
+  "crew.left": "Left the crew",
 };
 
 export type RecordEventInput = {

@@ -219,6 +219,30 @@ function extractInteractions(
       continue;
     }
 
+    /*
+     * Crew answers. Explicitly asked for and explicitly given, which is why
+     * they are allowed to move loyalty in a way no run of good sessions can.
+     */
+    if (
+      event.eventType === GameEventType.CrewJoined ||
+      event.eventType === GameEventType.CrewDeclined ||
+      event.eventType === GameEventType.CrewLeft
+    ) {
+      if (!event.targetId) continue;
+      const kind =
+        event.eventType === GameEventType.CrewJoined
+          ? "JOINED_CREW"
+          : event.eventType === GameEventType.CrewDeclined
+            ? "DECLINED_CREW"
+            : "LEFT_CREW";
+
+      push(
+        { type: "CHARACTER", id: event.targetId },
+        { kind, sequence: event.sequence, occurredAt: event.occurredAt },
+      );
+      continue;
+    }
+
     if (event.eventType === GameEventType.ReceptionTickCompleted) {
       const trackId = event.targetId ? wiring.trackByRelease.get(event.targetId) : undefined;
       const sessionId = trackId ? wiring.sessionByTrack.get(trackId) : undefined;
