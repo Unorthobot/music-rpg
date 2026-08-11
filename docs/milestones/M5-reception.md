@@ -20,6 +20,32 @@ The causal inputs already exist and are already persisted: the artist's Sound DN
 characteristics, the release format, the release strategy and its `audienceModifiers` (written in M4
 precisely for this), the producer's decisions, the career's act and scene, and the world.
 
+## Two rules that bound the whole milestone
+
+**1. The modifiers are the handoff contract.** M5 *consumes* `releases.audience_modifiers` (and the
+copy carried in the `release.published` payload). It must never re-read the release strategy and
+independently derive another set. One source of truth, written where the decision was made, read
+where the consequence happens — otherwise the recorded-not-applied discipline M4 held quietly
+becomes two competing derivations.
+
+**2. The simulator produces facts; the narrative layer explains them.** The simulation establishes
+that 87 scene-head exposures produced 31 engaged listeners, 9 fan conversions and positive Respect
+pressure. A later narrative system turns that into *"NO RECEPTION is getting passed around the
+scene."* Never the reverse: generated prose must not decide a track is gaining traction and have
+numbers manufactured to match it. Prose is a reading of the simulation, never an input to it.
+
+This makes the full architecture:
+
+```
+creative decisions → track → release decisions → published release →
+stored audience modifiers → simulation ticks → reception events →
+audience/career projections → player-facing consequences
+```
+
+Reception is **eventful, not merely numerical**: exposure happened, engagement happened, conversion
+happened, word-of-mouth happened. Every career number is a projection of that history, which is what
+lets World Control reconstruct it and what stops Home asserting a figure it cannot justify.
+
 ## The model
 
 Not one audience. Cohorts that hear the same record differently:
@@ -108,6 +134,25 @@ releases NO RECEPTION
 Then Home is built around that living state, and the line on the World page —
 *"How any of it is received is a later milestone"* — comes out, because the world is finally
 listening.
+
+## Sequence
+
+Locked:
+
+1. mobile M4 E2E → freeze M4
+2. simulator primitives
+3. deterministic cohort evaluation
+4. game-time ticks
+5. exposure / engagement / conversion / word-of-mouth events
+6. audience projections
+7. Fame / Respect / Heat consequences
+8. three-day golden headless test
+9. **inspect the actual simulated three-day output** — that output decides what the reception
+   surfaces genuinely need to communicate
+10. only then, M5 UI
+
+Step 9 is not a formality. Designing a dashboard before seeing what the simulation actually produces
+is how a game acquires screens nobody needed.
 
 ## Out of scope
 
