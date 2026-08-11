@@ -157,7 +157,24 @@ describe("resuming onboarding", () => {
 
     expect(events.length).toBeGreaterThanOrEqual(8);
     expect(events[0]!.eventType).toBe("career.created");
-    expect(events[events.length - 1]!.eventType).toBe("career.entered_underground");
+
+    /*
+     * Entering The Underground is the last thing *onboarding* does, not the last
+     * thing that has ever happened. It used to be terminal because nothing
+     * followed it; M7 made entering the trigger for the scene reaching out, so
+     * Thabo's introduction is recorded immediately afterwards.
+     *
+     * What this test is for is that the history is complete and ordered, so that
+     * is what it asserts: entering happened, and it happened after everything
+     * onboarding had to do first.
+     */
+    const order = events.map((event) => event.eventType);
+    const entered = order.indexOf("career.entered_underground");
+
+    expect(entered).toBeGreaterThan(order.indexOf("career.onboarding_completed"));
+    expect(entered).toBeGreaterThan(order.indexOf("sound_discovery.completed"));
+    // And the scene noticed, because entering is what makes it notice.
+    expect(order.indexOf("character.first_contact_created")).toBeGreaterThan(entered);
 
     // Every event carries the world it happened in, so world-scoped queries work
     // without a join through careers.

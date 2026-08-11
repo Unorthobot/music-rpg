@@ -4,13 +4,13 @@ import {
   archetypeCatalogue,
   audienceCohortSeeds,
   candidateSeeds,
-  characterSeeds,
   describeSound,
   discoveryQuestions,
   expandPsychology,
   expandSkills,
   expandSound,
   traitCatalogue,
+  worldCharacterSeeds,
   worldSeeds,
 } from "@music-rpg/simulation";
 import type { Database } from "../client";
@@ -194,8 +194,8 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
       result.audienceCohorts += 1;
     }
 
-    // --- Characters: the connector and the producers ---------------------
-    for (const character of characterSeeds) {
+    // --- Characters: the connector, the producers, the promoters ----------
+    for (const character of worldCharacterSeeds) {
       const values = {
         worldId,
         name: character.name,
@@ -206,8 +206,16 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
         origin: character.origin,
         personality: character.personality,
         motives: character.motives,
-        // The producer profile is what the interpretation engine reads.
-        preferences: character.producer ? { producer: character.producer } : {},
+        /*
+         * Structured profiles the engines read: the producer's is what the
+         * interpretation engine works from, the promoter's is what the
+         * opportunity director works from. Neither is decoration and neither is
+         * a prompt.
+         */
+        preferences: {
+          ...(character.producer ? { producer: character.producer } : {}),
+          ...(character.promoter ? { promoter: character.promoter } : {}),
+        },
         currentGoal: character.currentGoal ?? null,
         currentMood: character.currentMood ?? null,
       };

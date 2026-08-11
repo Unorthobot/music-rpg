@@ -97,6 +97,27 @@ export const GameEventType = {
    */
   RelationshipMomentSurfaced: "relationship.moment_surfaced",
   RelationshipMomentAnswered: "relationship.moment_answered",
+
+  /* --- M7: Missions & the Opportunity Director -------------------------- */
+  /**
+   * The lifecycle of an offer, event by event. Four of these are endings and
+   * they are deliberately four rather than one: turning something down, letting
+   * it lapse, seeing it through and having it made impossible are different
+   * things that happened, and later systems — and the people who offered — may
+   * care which.
+   *
+   * None of these moves Fame, Respect, Heat or a relationship. An opportunity
+   * creates a situation; what the player then does about it is what has
+   * consequences, and the systems that own those consequences already exist.
+   */
+  OpportunityDeclined: "opportunity.declined",
+  OpportunityExpired: "opportunity.expired",
+  /** Made impossible by something incompatible being accepted. */
+  OpportunityWithdrawn: "opportunity.withdrawn",
+  /** Two live offers cannot both happen, and now the world knows it. */
+  OpportunityConflictDetected: "opportunity.conflict_detected",
+  /** The director ran. Says what it considered, not only what it produced. */
+  OpportunityDirectorRan: "opportunity.director_ran",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -168,6 +189,12 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "crew.left": "Left the crew",
   "relationship.moment_surfaced": "Somebody has something to say",
   "relationship.moment_answered": "You answered them",
+
+  "opportunity.declined": "Turned an offer down",
+  "opportunity.expired": "An offer lapsed",
+  "opportunity.withdrawn": "An offer became impossible",
+  "opportunity.conflict_detected": "Two offers want the same night",
+  "opportunity.director_ran": "The world considered what to offer",
 };
 
 export type RecordEventInput = {

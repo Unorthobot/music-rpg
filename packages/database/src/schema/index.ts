@@ -9,6 +9,7 @@ export * from "./ops";
 export * from "./projections";
 export * from "./characters";
 export * from "./career-life";
+export * from "./director";
 export * from "./studio";
 export * from "./releases";
 export * from "./reception";

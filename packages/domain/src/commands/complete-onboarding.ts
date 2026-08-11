@@ -12,6 +12,7 @@ import { contextNow, track, type CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
 import { loadOwnedCareer } from "../internal/career";
 import { loadDiscoverySession } from "../internal/discovery";
+import { createFirstContact } from "./first-contact";
 
 /**
  * CompleteCareerOnboarding — "ENTER THE UNDERGROUND".
@@ -24,6 +25,13 @@ import { loadDiscoverySession } from "../internal/discovery";
  * Starting state was written at creation and is not re-applied here — money,
  * act and metrics are real persisted values from the moment the career exists,
  * not something conjured at the end of a flow.
+ *
+ * **Entering is also what makes the scene notice.** Thabo's introduction is
+ * triggered here, because this is a decision the player made and new world facts
+ * are allowed to come from decisions. It used to be triggered by Home rendering,
+ * which was idempotent and therefore harmless to look at, but made a screen the
+ * author of an opportunity — and M7's rule is that screens reveal and never
+ * create. The introduction itself is unchanged.
  */
 export async function completeCareerOnboarding(
   ctx: CommandContext,
@@ -148,6 +156,14 @@ export async function completeCareerOnboarding(
   });
 
   if (!updated) return err(DomainErrors.careerNotFound());
+
+  /*
+   * The scene reaches out. Deliberately after the career is ACTIVE and outside
+   * that transaction: first contact refuses a career that has not started, and
+   * a world with no producers in it must not be able to undo somebody's entry
+   * into The Underground. If it cannot happen, the career still started.
+   */
+  await createFirstContact(ctx, { careerId: career.id, userId: input.userId });
 
   await track(ctx, {
     name: "career_onboarding_completed",

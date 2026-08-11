@@ -8,7 +8,13 @@ import {
   type OpportunityRow,
 } from "@music-rpg/database";
 import { GameEventType, recordEvent } from "@music-rpg/events";
-import { err, ids, ok, type Result } from "@music-rpg/shared";
+import {
+  OPPORTUNITY_DIRECTOR_VERSION,
+  err,
+  ids,
+  ok,
+  type Result,
+} from "@music-rpg/shared";
 import { contextNow, type CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
 import { loadOwnedCareer } from "../internal/career";
@@ -20,14 +26,33 @@ export type FirstContactResult = {
   created: boolean;
 };
 
+/** Identity for the one authored offer Thabo makes. Per career, once, forever. */
+export function firstContactIdentityKey(careerSlug: string): string {
+  return `authored:first_contact:${careerSlug}`;
+}
+
 /**
  * Thabo gets in touch.
  *
  * The first thing that happens to a career is a person, not a notification.
  * This creates the conversation, the message, and the opportunity the message
- * is about — in one transaction, exactly once, no matter how many times Home is
- * loaded. The unique index on `(career_id, type)` is the enforcement; this
- * command reads it first so a repeat call returns the original.
+ * is about — in one transaction, exactly once.
+ *
+ * **An authored opportunity, and it says so.** Hand-written content on a
+ * condition, which is a different thing from what the director assembles and
+ * fails in a different way: an authored offer arriving at the wrong moment is a
+ * trigger bug, not a scoring one. Same table, same lifecycle, same statuses —
+ * and the player cannot tell which it was.
+ *
+ * **Who calls this matters.** Until M7 it was Home, on render, which was
+ * idempotent but made a screen the author of a world fact. The trigger is now
+ * `completeCareerOnboarding` — a player's decision, which is where new facts
+ * are allowed to come from. Repeat calls remain harmless, because idempotency is
+ * a property of the command rather than of who happens to call it.
+ *
+ * Exactly-once is enforced by the identity key rather than by the old unique
+ * index on `(career_id, type)`: that index had to go so two promoters could
+ * both want you, and this is what replaced it.
  *
  * Message copy is a deterministic fixture. No model is involved, and none is
  * needed: what matters is that the fiction arrives as a message from somebody
@@ -57,10 +82,14 @@ export async function createFirstContact(
     return err(DomainErrors.invalidInput("The scene has nobody to introduce you yet."));
   }
 
+  const identityKey = firstContactIdentityKey(career.id);
+
   const existingOpportunity = await ctx.db
     .select()
     .from(opportunities)
-    .where(and(eq(opportunities.careerId, career.id), eq(opportunities.type, "PRODUCER_INTRO")))
+    .where(
+      and(eq(opportunities.careerId, career.id), eq(opportunities.idempotencyKey, identityKey)),
+    )
     .limit(1);
 
   if (existingOpportunity[0]) {
@@ -148,16 +177,32 @@ export async function createFirstContact(
         id: opportunityId,
         careerId: career.id,
         type: "PRODUCER_INTRO",
+        origin: "AUTHORED",
         sourceEntityType: "CHARACTER",
         sourceEntityId: thabo.id,
         status: "AVAILABLE",
+        idempotencyKey: identityKey,
+        // In his own terms, and deliberately not an echo of an event label.
+        triggerReason: "A new name showed up in the scene, and Thabo keeps track of those.",
+        triggerState: { careerAct: career.careerAct, producerCount: producerRows.length },
+        directorVersion: OPPORTUNITY_DIRECTOR_VERSION,
         availableAt: now,
+        availableAtGameTime: gameTime,
+        generatedAtGameTime: gameTime,
+        /*
+         * No expiry. Thabo's introduction is how a career begins, and a player
+         * who leaves for a month must still find a way in — which is a decision
+         * about this offer, not a hole in the expiry mechanism.
+         */
+        expiresAtGameTime: null,
         payload: {
           producerIds: producerRows.map((producer) => producer.id),
           introducedBy: thabo.name,
         },
       })
-      .onConflictDoNothing({ target: [opportunities.careerId, opportunities.type] })
+      .onConflictDoNothing({
+        target: [opportunities.careerId, opportunities.idempotencyKey],
+      })
       .returning();
 
     const opportunity = insertedOpportunity[0];
@@ -175,7 +220,11 @@ export async function createFirstContact(
       importance: 55,
       occurredAt: gameTime,
       idempotencyKey: `opportunity:${opportunity.id}:created`,
-      payload: { type: "PRODUCER_INTRO", producerCount: producerRows.length },
+      payload: {
+        type: "PRODUCER_INTRO",
+        origin: "AUTHORED",
+        producerCount: producerRows.length,
+      },
     });
 
     // Two messages: the greeting, then the offer. Fixtures, not generation.
@@ -222,11 +271,13 @@ export async function createFirstContact(
   });
 
   if (!created) {
-    // Lost a race with a concurrent first render; return what exists now.
+    // Lost a race with a concurrent caller; return what exists now.
     const rows = await ctx.db
       .select()
       .from(opportunities)
-      .where(and(eq(opportunities.careerId, career.id), eq(opportunities.type, "PRODUCER_INTRO")))
+      .where(
+        and(eq(opportunities.careerId, career.id), eq(opportunities.idempotencyKey, identityKey)),
+      )
       .limit(1);
 
     const opportunity = rows[0];

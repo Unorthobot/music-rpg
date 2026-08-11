@@ -53,6 +53,17 @@ export type FinishedTrackOptions = {
   producerSlug?: string;
   stageName?: string;
   /**
+   * What the player asked for in the room.
+   *
+   * The default is a scene-facing, high-risk brief. Overriding it is how a
+   * suite builds a career that made a *materially different record* rather than
+   * the same record with a different producer — an accessible, low-risk brief
+   * aimed at everybody produces a track the scene heads have no use for, and
+   * that difference is supposed to reach all the way through to what the world
+   * later offers.
+   */
+  direction?: Partial<CreativeDirection>;
+  /**
    * Put friction in the history.
    *
    * The clean path takes the producer's first read and ships it, which is a
@@ -113,7 +124,13 @@ export async function makeFinishedTrack(
   const sessionId = selection.session.id;
 
   unwrap(await startCreativeSession(test.ctx, { sessionId, userId: user.id }));
-  unwrap(await setCreativeDirection(test.ctx, { sessionId, userId: user.id, direction: DIRECTION }));
+  unwrap(
+    await setCreativeDirection(test.ctx, {
+      sessionId,
+      userId: user.id,
+      direction: { ...DIRECTION, ...(options.direction ?? {}) },
+    }),
+  );
 
   let { proposals } = unwrap(
     await interpretCreativeDirection(test.ctx, { sessionId, userId: user.id }),

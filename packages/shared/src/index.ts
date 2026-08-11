@@ -5,6 +5,7 @@ export * from "./enums";
 export * from "./ids";
 export * from "./money";
 export * from "./numbers";
+export * from "./opportunities";
 export * from "./reception";
 export * from "./relationships";
 export * from "./releases";

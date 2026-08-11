@@ -84,10 +84,22 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
         .from(npcConversations)
         .innerJoin(characters, eq(characters.id, npcConversations.characterId))
         .where(eq(npcConversations.careerId, career.id)),
+      /*
+       * Scoped to the producer introduction on purpose. "Right now" turns an
+       * available opportunity into a link to the producer-selection screen, so
+       * once the director can produce a showcase invitation, the newest
+       * opportunity of *any* type would point a promoter's night at the wrong
+       * page. Home's producer prompt is about the producer prompt.
+       */
       db
         .select()
         .from(opportunities)
-        .where(eq(opportunities.careerId, career.id))
+        .where(
+          and(
+            eq(opportunities.careerId, career.id),
+            eq(opportunities.type, "PRODUCER_INTRO"),
+          ),
+        )
         .orderBy(desc(opportunities.createdAt)),
       db
         .select()

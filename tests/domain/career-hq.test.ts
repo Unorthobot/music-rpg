@@ -88,12 +88,26 @@ describe("career HQ", () => {
     if (!result.ok) expect(result.error.code).toBe("INVALID_CAREER_STATE");
   });
 
-  it("creates first contact exactly once, however many times Home loads", async () => {
+  /**
+   * First contact happens once, and entering The Underground is what does it.
+   *
+   * This assertion used to read `first.created === true` on the first call from a
+   * test, because Home triggered first contact on render and a test standing in
+   * for Home was therefore the creator. M7 moved the trigger into
+   * `completeCareerOnboarding`: a screen may reveal a world fact and must never
+   * author one, and entering is a decision the player actually made.
+   *
+   * So by the time anything calls this command, the introduction already exists —
+   * and what is worth asserting is what was always the real guarantee. Exactly one
+   * opportunity, one conversation, two messages, no matter how many callers ask.
+   */
+  it("creates first contact exactly once, through entering The Underground", async () => {
     const first = unwrap(await createFirstContact(test.ctx, { careerId, userId: user.id }));
     const second = unwrap(await createFirstContact(test.ctx, { careerId, userId: user.id }));
     const third = unwrap(await createFirstContact(test.ctx, { careerId, userId: user.id }));
 
-    expect(first.created).toBe(true);
+    // Nobody here created anything: onboarding did, and these are replays.
+    expect(first.created).toBe(false);
     expect(second.created).toBe(false);
     expect(third.opportunity.id).toBe(first.opportunity.id);
 
@@ -108,6 +122,10 @@ describe("career HQ", () => {
       .where(eq(opportunities.careerId, careerId));
     expect(opportunityRows).toHaveLength(1);
     expect(opportunityRows[0]!.status).toBe("AVAILABLE");
+    // Authored, and recorded as such: hand-written content on a condition.
+    expect(opportunityRows[0]!.origin).toBe("AUTHORED");
+    // Identity per opportunity, which is what replaced the (career, type) index.
+    expect(opportunityRows[0]!.idempotencyKey).toBeTruthy();
   });
 
   it("links the message to the opportunity it is about", async () => {

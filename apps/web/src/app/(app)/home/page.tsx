@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { formatCount, formatMoney } from "@music-rpg/shared";
 import {
-  createFirstContact,
   getCareerCounters,
   getCareerHome,
   getCareerPulse,
@@ -29,9 +28,14 @@ export const metadata = { title: "Home" };
  * Career HQ.
  *
  * Where am I, what is happening, what should I care about right now — in that
- * order, and every answer read from state. The one thing Home *does* rather
- * than reads is trigger first contact, which is idempotent by construction:
- * the scene reaching out is part of arriving, not a button the player presses.
+ * order, and every answer read from state.
+ *
+ * Home creates nothing. It used to trigger first contact on render, which was
+ * idempotent and so never visibly wrong, but it made a screen the author of a
+ * world fact. Opening this page ten times shows the same world ten times because
+ * there is nothing here that could change it: new opportunities arrive from
+ * entering The Underground and from letting a day pass, and this page reveals
+ * what already happened.
  */
 export default async function HomePage({
   searchParams,
@@ -41,9 +45,6 @@ export default async function HomePage({
   const { user, view } = await requireCareer();
   const act = view.career.careerAct;
   const ctx = await createCommandContext();
-
-  // Idempotent: creates the conversation, message and opportunity exactly once.
-  await createFirstContact(ctx, { careerId: view.career.id, userId: user.id });
 
   const db = await getAppDb();
   const [counters, home, reception, pulse] = await Promise.all([

@@ -1,5 +1,6 @@
 export * from "./chemistry";
 export * from "./describe";
+export * from "./opportunities";
 export * from "./random";
 export * from "./reception";
 export * from "./relationships";

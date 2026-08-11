@@ -67,6 +67,11 @@ export const ANALYTICS_EVENTS = [
   "crew_member_joined",
   "crew_invite_declined",
   "relationship_moment_answered",
+
+  /* --- M7: Missions & the Opportunity Director ------------------------- */
+  "opportunity_director_ran",
+  "opportunity_accepted",
+  "opportunity_declined",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

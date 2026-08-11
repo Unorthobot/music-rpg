@@ -130,17 +130,61 @@ export type CharacterRole = (typeof CHARACTER_ROLES)[number];
 
 /* --- Opportunities ------------------------------------------------------ */
 
-export const OPPORTUNITY_TYPES = ["PRODUCER_INTRO"] as const;
+export const OPPORTUNITY_TYPES = [
+  /** Authored: Thabo introduces the producers who are taking sessions. */
+  "PRODUCER_INTRO",
+  /** Generated: a promoter has a night in a scene and wants somebody on it. */
+  "SHOWCASE_SLOT",
+  /** Generated: somebody you have made a record with wants to make another. */
+  "SESSION_INVITE",
+] as const;
 export type OpportunityType = (typeof OPPORTUNITY_TYPES)[number];
 
+/**
+ * Where an opportunity came from.
+ *
+ * The same kind of world fact either way — same table, same lifecycle, and the
+ * player cannot tell which is which. Recorded because the two need different
+ * reasoning when something looks wrong: an authored one firing at the wrong
+ * moment is a trigger bug, and a generated one that reads implausibly is an
+ * eligibility or scoring bug.
+ */
+export const OPPORTUNITY_ORIGINS = ["AUTHORED", "GENERATED"] as const;
+export type OpportunityOrigin = (typeof OPPORTUNITY_ORIGINS)[number];
+
+/**
+ * The lifetime of an offer.
+ *
+ * Five of these were declared in M2 and the last is M7's. Every one of them is
+ * a different historical fact and none of them stands in for another:
+ *
+ * - `DECLINED` — the player turned it down. A choice.
+ * - `EXPIRED`  — nobody answered and the date passed. A different choice.
+ * - `RESOLVED` — it happened.
+ * - `WITHDRAWN` — it became impossible because something incompatible was
+ *   accepted. Not the player's refusal, not a lapse, and not a thing that
+ *   happened, so it is none of the above.
+ */
 export const OPPORTUNITY_STATUSES = [
   "AVAILABLE",
   "ACCEPTED",
   "DECLINED",
   "EXPIRED",
   "RESOLVED",
+  "WITHDRAWN",
 ] as const;
 export type OpportunityStatus = (typeof OPPORTUNITY_STATUSES)[number];
+
+/** Statuses that are still the player's to answer. */
+export const LIVE_OPPORTUNITY_STATUSES: OpportunityStatus[] = ["AVAILABLE"];
+
+/** An opportunity in one of these will never change again. */
+export const TERMINAL_OPPORTUNITY_STATUSES: OpportunityStatus[] = [
+  "DECLINED",
+  "EXPIRED",
+  "RESOLVED",
+  "WITHDRAWN",
+];
 
 /* --- Calendar ----------------------------------------------------------- */
 

@@ -7,6 +7,7 @@ import { PSYCHOLOGY_KEYS, SKILL_KEYS, SOUND_DIMENSIONS, formatMoney } from "@mus
 import { Label, Surface } from "@music-rpg/ui";
 import { getAppDb } from "@/lib/db";
 import { CareerCausality } from "./causality";
+import { CareerOpportunities } from "./opportunities";
 import { CareerReception } from "./reception";
 import { CareerRelationships } from "./relationships";
 
@@ -170,6 +171,8 @@ export default async function WorldControlCareerDetail({
       <CareerCausality db={db} careerId={view.career.id} />
 
       <CareerRelationships db={db} careerId={view.career.id} />
+
+      <CareerOpportunities db={db} careerId={view.career.id} />
 
       <CareerReception
         db={db}
