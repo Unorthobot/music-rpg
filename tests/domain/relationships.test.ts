@@ -1,5 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { characters, eq, gameEvents, relationships, type UserRow } from "@music-rpg/database";
+import {
+  careers,
+  characters,
+  eq,
+  gameEvents,
+  relationships,
+  type UserRow,
+} from "@music-rpg/database";
 import { GameEventType } from "@music-rpg/events";
 import {
   advanceCareerDay,
@@ -504,30 +511,53 @@ describe("a relationship with something to say", () => {
     await run.close();
   });
 
-  it("surfaces from a compound condition, not a single threshold", async () => {
-    const result = unwrap(
-      await surfaceRelationshipMoments(run.test.ctx, {
-        careerId: run.careerId,
-        userId: run.userId,
-      }),
-    );
+  it("surfaced while time was passing, not when somebody looked", async () => {
+    /*
+     * Nothing in this test asks the world to decide anything. The moment is
+     * already there, because the days advancing is what created it — opening a
+     * screen must never be what makes LEX want to talk.
+     */
+    const open = await getOpenMoments(run.test.ctx, run.careerId);
+    expect(open).toHaveLength(1);
 
-    expect(result.surfaced).toHaveLength(1);
-    const moment = result.surfaced[0]!;
+    const [moment] = await getMomentHistory(run.test.ctx, run.careerId);
 
     /*
      * The friction career respects LEX and has something unresolved with him.
      * The same tension with *low* respect would have surfaced GONE_QUIET
      * instead — which is why the condition is a pair and not a threshold.
      */
-    expect(moment.kind).toBe("WANTS_TO_TALK");
-    expect(moment.status).toBe("OPEN");
-    expect(moment.triggerReason).toMatch(/respect .* and tension /);
+    expect(moment!.kind).toBe("WANTS_TO_TALK");
+    expect(moment!.status).toBe("OPEN");
+    expect(moment!.triggerReason).toMatch(/respect .* and tension /);
 
     // The state that caused it is kept, not recomputed later.
-    expect(moment.triggerState.tension).toBeGreaterThan(0);
-    expect(moment.triggerState.respect).toBeGreaterThan(0);
+    expect(moment!.triggerState.tension).toBeGreaterThan(0);
+    expect(moment!.triggerState.respect).toBeGreaterThan(0);
   });
+
+  it("does not surface anything before a day has passed", async () => {
+    // A separate career that has released but not yet let a day go by.
+    const fresh = await createTestContext();
+    const user = await createTestUser(fresh, "NOTYET");
+    await makePublishedRelease(fresh, user, "TOO SOON", {
+      stageName: "NOTYET",
+      friction: true,
+    });
+
+    const [career] = await fresh.handle.db.select().from(careers);
+    unwrap(
+      await syncCareerRelationships(fresh.ctx, { careerId: career!.id, userId: user.id }),
+    );
+
+    // The relationship exists — they made a record together — but the world has
+    // not had a day in which to react to any of it.
+    const people = await getPeople(fresh.handle.db, career!.id);
+    expect(people).toHaveLength(1);
+    expect(await getOpenMoments(fresh.ctx, career!.id)).toHaveLength(0);
+
+    await fresh.close();
+  }, 120_000);
 
   it("changes nothing by existing", async () => {
     const [before] = await run.test.handle.db
