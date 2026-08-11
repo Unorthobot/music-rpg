@@ -91,6 +91,12 @@ export const GameEventType = {
   CrewJoined: "crew.joined",
   CrewDeclined: "crew.declined",
   CrewLeft: "crew.left",
+  /**
+   * A relationship had something to say. Surfacing changes nothing — the
+   * answer is where the consequence is.
+   */
+  RelationshipMomentSurfaced: "relationship.moment_surfaced",
+  RelationshipMomentAnswered: "relationship.moment_answered",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -160,6 +166,8 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "crew.joined": "Joined the crew",
   "crew.declined": "Turned it down",
   "crew.left": "Left the crew",
+  "relationship.moment_surfaced": "Somebody has something to say",
+  "relationship.moment_answered": "You answered them",
 };
 
 export type RecordEventInput = {

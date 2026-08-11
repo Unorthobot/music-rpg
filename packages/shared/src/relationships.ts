@@ -112,6 +112,13 @@ export const INTERACTION_KINDS = [
   "DECLINED_CREW",
   /** Was in the crew, and left. */
   "LEFT_CREW",
+  /* --- Responses to a moment. The player answered; this is what they did. --- */
+  /** Heard them out. */
+  "TALKED_IT_THROUGH",
+  /** Heard them, and did not move. */
+  "STOOD_GROUND",
+  /** Did not answer. */
+  "AVOIDED_THEM",
 ] as const;
 export type InteractionKind = (typeof INTERACTION_KINDS)[number];
 
@@ -190,4 +197,54 @@ export type CrewDecision = {
   line: string;
   /** Why, for the inspector. Never shown to the player as a number. */
   factors: Record<string, number>;
+};
+
+/* --- Moments -------------------------------------------------------------- */
+
+/**
+ * A moment is an invitation, not a consequence.
+ *
+ * "LEX wants to talk" does not reduce tension. It surfaces because the state
+ * between two people crossed a condition that makes a conversation plausible,
+ * and then it waits — the player decides how to answer, and *that* becomes the
+ * next relationship event. A moment that resolved itself would be a
+ * notification about something the game had already decided.
+ *
+ * Once surfaced a moment is persisted, with the state that produced it. It is
+ * not recomputed on read and it cannot be rerolled by refreshing.
+ */
+export const MOMENT_KINDS = [
+  /** They rate you and something is unresolved. Worth having out. */
+  "WANTS_TO_TALK",
+  /** Unresolved, and they do not rate you enough to bother. */
+  "GONE_QUIET",
+  /** It is going well and they want to do it again. */
+  "WANTS_ANOTHER_SESSION",
+] as const;
+export type MomentKind = (typeof MOMENT_KINDS)[number];
+
+export const MOMENT_STATUSES = ["OPEN", "RESOLVED", "EXPIRED"] as const;
+export type MomentStatus = (typeof MOMENT_STATUSES)[number];
+
+/** How the player may answer. Each is a real act with its own consequence. */
+export const MOMENT_RESPONSES = ["TALK", "HOLD_FIRM", "IGNORE", "ACCEPT", "DECLINE"] as const;
+export type MomentResponse = (typeof MOMENT_RESPONSES)[number];
+
+export type MomentOption = {
+  response: MomentResponse;
+  label: string;
+  /** What choosing this means, in the player's language. */
+  detail: string;
+};
+
+export type MomentView = {
+  id: string;
+  kind: MomentKind;
+  /** Whose moment it is. */
+  subjectId: string;
+  name: string;
+  /** "LEX wants to talk." */
+  title: string;
+  detail: string;
+  options: MomentOption[];
 };

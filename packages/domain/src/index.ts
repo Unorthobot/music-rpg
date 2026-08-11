@@ -19,6 +19,7 @@ export * from "./commands/release";
 export * from "./commands/reception";
 export * from "./commands/relationships";
 export * from "./commands/crew";
+export * from "./commands/moments";
 
 export * from "./queries/career-view";
 export * from "./queries/counters";

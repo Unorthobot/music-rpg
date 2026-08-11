@@ -243,6 +243,25 @@ function extractInteractions(
       continue;
     }
 
+    /*
+     * Answering a moment. The surfacing event is deliberately not read here —
+     * a moment is an invitation and moves nothing; only the answer does.
+     */
+    if (event.eventType === GameEventType.RelationshipMomentAnswered) {
+      const payload = event.payload as { interaction?: string };
+      if (!event.targetId || !payload.interaction) continue;
+
+      push(
+        { type: "CHARACTER", id: event.targetId },
+        {
+          kind: payload.interaction as InteractionKind,
+          sequence: event.sequence,
+          occurredAt: event.occurredAt,
+        },
+      );
+      continue;
+    }
+
     if (event.eventType === GameEventType.ReceptionTickCompleted) {
       const trackId = event.targetId ? wiring.trackByRelease.get(event.targetId) : undefined;
       const sessionId = trackId ? wiring.sessionByTrack.get(trackId) : undefined;

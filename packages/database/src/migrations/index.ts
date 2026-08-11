@@ -7,6 +7,7 @@ import { migration0006M5Reception } from "./0006_m5_reception";
 import { migration0007M5ListenerSemantics } from "./0007_m5_listener_semantics";
 import { migration0008M6Relationships } from "./0008_m6_relationships";
 import { migration0009M6Crew } from "./0009_m6_crew";
+import { migration0010M6Moments } from "./0010_m6_moments";
 
 export type Migration = { id: string; sql: string };
 
@@ -21,4 +22,5 @@ export const migrations: Migration[] = [
   migration0007M5ListenerSemantics,
   migration0008M6Relationships,
   migration0009M6Crew,
+  migration0010M6Moments,
 ];

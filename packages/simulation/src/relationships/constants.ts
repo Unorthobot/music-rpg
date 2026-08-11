@@ -140,6 +140,29 @@ export const RESPECT_DECLINED_CREW = 1;
 export const LOYALTY_LEFT_CREW = -30;
 export const TENSION_LEFT_CREW = 20;
 
+/* --- Answering a moment --------------------------------------------------- */
+
+/**
+ * The response is the consequence; the moment never was.
+ *
+ * Hearing somebody out is the only thing that meaningfully clears the air, and
+ * it costs nothing but the willingness to have the conversation. Standing your
+ * ground is not a wrong answer — it earns respect from people who respect
+ * conviction — but it leaves the thing unresolved. Not answering at all is the
+ * only one that takes something away.
+ */
+export const TENSION_TALKED_IT_THROUGH = -16;
+export const TRUST_TALKED_IT_THROUGH = 6;
+export const RESPECT_TALKED_IT_THROUGH = 3;
+
+export const RESPECT_STOOD_GROUND = 6;
+export const TENSION_STOOD_GROUND = -2;
+export const TRUST_STOOD_GROUND = 1;
+
+export const TRUST_AVOIDED_THEM = -7;
+export const TENSION_AVOIDED_THEM = 9;
+export const LOYALTY_AVOIDED_THEM = -4;
+
 /* --- Bounds --------------------------------------------------------------- */
 
 export const RELATIONSHIP_FLOOR = 0;

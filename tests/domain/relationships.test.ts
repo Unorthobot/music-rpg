@@ -5,8 +5,12 @@ import {
   advanceCareerDay,
   getCrew,
   getCrewEligibility,
+  getMomentHistory,
+  getOpenMoments,
   getPeople,
   inviteToCrew,
+  respondToMoment,
+  surfaceRelationshipMoments,
   getRelationshipDecisions,
   getRelationshipHistory,
   syncCareerRelationships,
@@ -474,5 +478,177 @@ describe("becoming crew", () => {
 
     expect(eligibility.eligible).toBe(false);
     expect(eligibility.reason).toMatch(/already with you/i);
+  });
+});
+
+/**
+ * Moments.
+ *
+ * The first gameplay payoff, and the rule that keeps it honest: a moment is an
+ * invitation to a decision, not the decision's consequence. Surfacing "LEX
+ * wants to talk" must not clear the air by itself — the player has to answer,
+ * and the answer is what moves anything.
+ */
+describe("a relationship with something to say", () => {
+  let run: Run;
+
+  beforeAll(async () => {
+    run = await liveThroughASession({
+      friction: true,
+      stageName: "MOMENTKX",
+      title: "SAID OUT LOUD",
+    });
+  }, 120_000);
+
+  afterAll(async () => {
+    await run.close();
+  });
+
+  it("surfaces from a compound condition, not a single threshold", async () => {
+    const result = unwrap(
+      await surfaceRelationshipMoments(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+      }),
+    );
+
+    expect(result.surfaced).toHaveLength(1);
+    const moment = result.surfaced[0]!;
+
+    /*
+     * The friction career respects LEX and has something unresolved with him.
+     * The same tension with *low* respect would have surfaced GONE_QUIET
+     * instead — which is why the condition is a pair and not a threshold.
+     */
+    expect(moment.kind).toBe("WANTS_TO_TALK");
+    expect(moment.status).toBe("OPEN");
+    expect(moment.triggerReason).toMatch(/respect .* and tension /);
+
+    // The state that caused it is kept, not recomputed later.
+    expect(moment.triggerState.tension).toBeGreaterThan(0);
+    expect(moment.triggerState.respect).toBeGreaterThan(0);
+  });
+
+  it("changes nothing by existing", async () => {
+    const [before] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    // Surfacing already happened above; fold anything it might have written.
+    unwrap(
+      await syncCareerRelationships(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+      }),
+    );
+
+    const [after] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    // An invitation is not a consequence. LEX wanting to talk has not, by
+    // itself, cleared the air.
+    expect(after!.tension).toBe(before!.tension);
+    expect(after!.trust).toBe(before!.trust);
+    expect(after!.respect).toBe(before!.respect);
+  });
+
+  it("does not reroll when you look again", async () => {
+    const first = await getOpenMoments(run.test.ctx, run.careerId);
+
+    // Three more passes, as a page load would do.
+    for (let pass = 0; pass < 3; pass += 1) {
+      unwrap(
+        await surfaceRelationshipMoments(run.test.ctx, {
+          careerId: run.careerId,
+          userId: run.userId,
+        }),
+      );
+    }
+
+    const again = await getOpenMoments(run.test.ctx, run.careerId);
+
+    expect(again).toHaveLength(1);
+    expect(again[0]!.id).toBe(first[0]!.id);
+    expect(again[0]!.title).toBe("LEX wants to talk.");
+  });
+
+  it("offers real choices, in words", async () => {
+    const [moment] = await getOpenMoments(run.test.ctx, run.careerId);
+
+    expect(moment!.options.length).toBeGreaterThan(1);
+    expect(moment!.options.map((option) => option.response)).toContain("TALK");
+    expect(moment!.options.map((option) => option.response)).toContain("IGNORE");
+    expect(JSON.stringify(moment!.options)).not.toMatch(/[0-9]/);
+  });
+
+  it("refuses an answer the moment never offered", async () => {
+    const [moment] = await getOpenMoments(run.test.ctx, run.careerId);
+
+    const result = await respondToMoment(run.test.ctx, {
+      careerId: run.careerId,
+      userId: run.userId,
+      momentId: moment!.id,
+      response: "ACCEPT",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toMatch(/isn't one of your options/i);
+  });
+
+  it("puts the consequence in the answer, and prices it through the fold", async () => {
+    const [moment] = await getOpenMoments(run.test.ctx, run.careerId);
+    const [before] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    const answered = unwrap(
+      await respondToMoment(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+        momentId: moment!.id,
+        response: "TALK",
+      }),
+    );
+
+    expect(answered.moment.status).toBe("RESOLVED");
+    expect(answered.moment.response).toBe("TALK");
+    expect(answered.interaction).toBe("TALKED_IT_THROUGH");
+
+    // Still nothing has moved: the command records, the fold prices.
+    const [midway] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+    expect(midway!.tension).toBe(before!.tension);
+
+    unwrap(
+      await syncCareerRelationships(run.test.ctx, {
+        careerId: run.careerId,
+        userId: run.userId,
+      }),
+    );
+
+    const [after] = await run.test.handle.db
+      .select()
+      .from(relationships)
+      .where(eq(relationships.careerId, run.careerId));
+
+    // Hearing somebody out is the thing that actually clears the air.
+    expect(after!.tension).toBeLessThan(before!.tension);
+    expect(after!.trust).toBeGreaterThan(before!.trust);
+  });
+
+  it("closes the moment for good", async () => {
+    const open = await getOpenMoments(run.test.ctx, run.careerId);
+    expect(open).toHaveLength(0);
+
+    const history = await getMomentHistory(run.test.ctx, run.careerId);
+    expect(history).toHaveLength(1);
+    expect(history[0]!.status).toBe("RESOLVED");
+    expect(history[0]!.resolvedAtGameTime).toBeTruthy();
   });
 });

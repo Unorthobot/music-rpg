@@ -14,3 +14,4 @@ export * from "./releases";
 export * from "./reception";
 export * from "./relationships";
 export * from "./crew";
+export * from "./moments";

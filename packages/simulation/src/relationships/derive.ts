@@ -16,12 +16,15 @@ import {
   FAMILIARITY_JOINED_CREW,
   FAMILIARITY_PER_FINISHED_RECORD,
   FAMILIARITY_PER_INTERACTION,
+  LOYALTY_AVOIDED_THEM,
   LOYALTY_JOINED_CREW,
   LOYALTY_LEFT_CREW,
   LOYALTY_PER_FINISHED_RECORD,
   LOYALTY_PER_RECHOSEN,
   REFUSAL_UNRESOLVED_FACTOR,
   RESPECT_DECLINED_CREW,
+  RESPECT_STOOD_GROUND,
+  RESPECT_TALKED_IT_THROUGH,
   RELATIONSHIP_CEILING,
   RELATIONSHIP_FLOOR,
   RESPECT_IDEAS_COMBINED,
@@ -32,9 +35,12 @@ import {
   RESPECT_REVISION_ASKED,
   RESPECT_WORK_MASTERED,
   RESPECT_WORK_RELEASED,
+  TENSION_AVOIDED_THEM,
   TENSION_DECLINED_CREW,
   TENSION_IDEAS_REFUSED,
   TENSION_LEFT_CREW,
+  TENSION_STOOD_GROUND,
+  TENSION_TALKED_IT_THROUGH,
   TENSION_REFUSED_WHILE_PUSHING_BACK,
   TENSION_REVISION_ASKED,
   TENSION_SETTLED_BY_RECEPTION,
@@ -44,7 +50,10 @@ import {
   TRUST_DIRECTION_GIVEN,
   TRUST_IDEAS_REFUSED,
   TRUST_IDEA_TAKEN,
+  TRUST_AVOIDED_THEM,
   TRUST_JOINED_CREW,
+  TRUST_STOOD_GROUND,
+  TRUST_TALKED_IT_THROUGH,
   TRUST_WORK_ABANDONED,
   TRUST_WORK_KEPT,
   TRUST_WORK_MASTERED,
@@ -212,6 +221,35 @@ function deltaFor(
 
     case "LEFT_CREW":
       return { ...base, loyalty: LOYALTY_LEFT_CREW, tension: TENSION_LEFT_CREW };
+
+    /*
+     * Answers to a moment. The moment itself moved nothing — it was an
+     * invitation — so all of its weight lands here, on what was actually done
+     * about it.
+     */
+    case "TALKED_IT_THROUGH":
+      return {
+        ...base,
+        tension: TENSION_TALKED_IT_THROUGH,
+        trust: TRUST_TALKED_IT_THROUGH,
+        respect: RESPECT_TALKED_IT_THROUGH,
+      };
+
+    case "STOOD_GROUND":
+      return {
+        ...base,
+        respect: RESPECT_STOOD_GROUND,
+        tension: TENSION_STOOD_GROUND,
+        trust: TRUST_STOOD_GROUND,
+      };
+
+    case "AVOIDED_THEM":
+      return {
+        ...base,
+        trust: TRUST_AVOIDED_THEM,
+        tension: TENSION_AVOIDED_THEM,
+        loyalty: LOYALTY_AVOIDED_THEM,
+      };
 
     default:
       return base;
