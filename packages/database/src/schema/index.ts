@@ -11,3 +11,4 @@ export * from "./characters";
 export * from "./career-life";
 export * from "./studio";
 export * from "./releases";
+export * from "./reception";

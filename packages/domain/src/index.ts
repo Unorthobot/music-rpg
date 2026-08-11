@@ -16,6 +16,7 @@ export * from "./commands/first-contact";
 export * from "./commands/select-producer";
 export * from "./commands/studio";
 export * from "./commands/release";
+export * from "./commands/reception";
 
 export * from "./queries/career-view";
 export * from "./queries/counters";
@@ -23,6 +24,7 @@ export * from "./queries/career-hq";
 export * from "./queries/studio";
 export * from "./queries/onboarding";
 export * from "./queries/public-profile";
+export * from "./queries/reception";
 
 export {
   loadDiscoveryQuestions,

@@ -7,6 +7,7 @@ import { PSYCHOLOGY_KEYS, SKILL_KEYS, SOUND_DIMENSIONS, formatMoney } from "@mus
 import { Label, Surface } from "@music-rpg/ui";
 import { getAppDb } from "@/lib/db";
 import { CareerCausality } from "./causality";
+import { CareerReception } from "./reception";
 
 /**
  * The inspector view that answers "how did this career come to exist?".
@@ -166,6 +167,17 @@ export default async function WorldControlCareerDetail({
       ) : null}
 
       <CareerCausality db={db} careerId={view.career.id} />
+
+      <CareerReception
+        db={db}
+        careerId={view.career.id}
+        world={{ id: view.world.id }}
+        entity={
+          view.career.controlledEntityType && view.career.controlledEntityId
+            ? { type: view.career.controlledEntityType, id: view.career.controlledEntityId }
+            : null
+        }
+      />
 
       <section className="flex flex-col gap-3">
         <Label>Canonical events ({events.length})</Label>

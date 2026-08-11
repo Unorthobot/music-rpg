@@ -59,6 +59,9 @@ export const ANALYTICS_EVENTS = [
   "release_scheduled",
   "release_published",
   "track_kept_private",
+
+  /* --- M5: Reception --------------------------------------------------- */
+  "reception_tick_simulated",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

@@ -65,6 +65,20 @@ export const GameEventType = {
   ReleaseScheduled: "release.scheduled",
   ReleaseCancelled: "release.cancelled",
   ReleasePublished: "release.published",
+
+  /* --- M5: Reception --------------------------------------------------- */
+  /**
+   * Reception is eventful, not merely numerical. These are what let world
+   * control answer "where did these numbers come from?" — every projected
+   * figure is the sum of a history that is still here.
+   */
+  ReceptionExposureOccurred: "reception.exposure_occurred",
+  ReceptionEngagementOccurred: "reception.engagement_occurred",
+  ReceptionFanConversionOccurred: "reception.fan_conversion_occurred",
+  ReceptionWordOfMouthOccurred: "reception.word_of_mouth_occurred",
+  /** Fame / Respect / Heat movement, with the reception facts that caused it. */
+  ReceptionMetricPressureApplied: "reception.metric_pressure_applied",
+  ReceptionTickCompleted: "reception.tick_completed",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -121,6 +135,13 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "release.scheduled": "Release scheduled",
   "release.cancelled": "Release cancelled",
   "release.published": "Released",
+
+  "reception.exposure_occurred": "People came across it",
+  "reception.engagement_occurred": "People listened properly",
+  "reception.fan_conversion_occurred": "New fans",
+  "reception.word_of_mouth_occurred": "Passed around",
+  "reception.metric_pressure_applied": "Standing moved",
+  "reception.tick_completed": "Reception simulated",
 };
 
 export type RecordEventInput = {

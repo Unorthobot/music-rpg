@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { ids, slugify } from "@music-rpg/shared";
 import {
   archetypeCatalogue,
+  audienceCohortSeeds,
   candidateSeeds,
   characterSeeds,
   describeSound,
@@ -19,6 +20,7 @@ import {
   artistSkills,
   artistTraits,
   artists,
+  audienceCohorts,
   characters,
   scenes,
   soundDiscoveryQuestions,
@@ -43,6 +45,7 @@ export type SeedResult = {
   questions: number;
   candidates: number;
   characters: number;
+  audienceCohorts: number;
 };
 
 export async function seedDatabase(db: Database): Promise<SeedResult> {
@@ -54,6 +57,7 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
     questions: 0,
     candidates: 0,
     characters: 0,
+    audienceCohorts: 0,
   };
 
   // --- Archetypes ---------------------------------------------------------
@@ -161,6 +165,33 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
         })
         .onConflictDoNothing({ target: [scenes.worldId, scenes.slug] });
       result.scenes += 1;
+    }
+
+    /*
+     * --- Audiences ------------------------------------------------------
+     *
+     * World population, not career state. These exist before any artist does,
+     * and every career releasing into this world addresses the same people.
+     */
+    for (const cohort of audienceCohortSeeds) {
+      const values = {
+        name: cohort.name,
+        description: cohort.description,
+        size: cohort.size,
+        preferences: cohort.preferences,
+        behaviouralWeights: cohort.behaviour,
+        sceneAffinity: cohort.sceneAffinity,
+        updatedAt: new Date(),
+      };
+
+      await db
+        .insert(audienceCohorts)
+        .values({ id: ids.generic(), worldId, slug: cohort.slug, ...values })
+        .onConflictDoUpdate({
+          target: [audienceCohorts.worldId, audienceCohorts.slug],
+          set: values,
+        });
+      result.audienceCohorts += 1;
     }
 
     // --- Characters: the connector and the producers ---------------------
