@@ -137,22 +137,39 @@ listening.
 
 ## Sequence
 
-Locked:
+M4 is frozen at tag `m4-final` (commit `40d2439`). The headless sequence, in order:
 
-1. mobile M4 E2E → freeze M4
-2. simulator primitives
-3. deterministic cohort evaluation
-4. game-time ticks
-5. exposure / engagement / conversion / word-of-mouth events
-6. audience projections
-7. Fame / Respect / Heat consequences
-8. three-day golden headless test
-9. **inspect the actual simulated three-day output** — that output decides what the reception
-   surfaces genuinely need to communicate
-10. only then, M5 UI
+1. **Audience primitives** — cohort definitions, artist audience projection, listener/fan
+   separation, release-performance state.
+2. **Reception event vocabulary** — exposure, engagement, conversion, word-of-mouth, metric
+   pressure. Named before anything emits them, so the log is designed rather than accumulated.
+3. **Deterministic simulator** — consumes the published release and the already-recorded M4
+   modifiers. No strategy re-derivation (see rule 1).
+4. **Game-time ticks** — day 1, day 2, day 3 progression.
+5. **Career projection updates** — fans, listeners, Fame, Respect, Heat. Legacy untouched.
+6. **Explainability output** — World Control reconstructs every number from events.
+7. **Golden test** — same seed and state produce the same three-day outcome, and a changed input
+   produces an explainably *different* trajectory. Both halves matter: determinism alone would be
+   satisfied by a simulator that ignores its inputs.
 
-Step 9 is not a formality. Designing a dashboard before seeing what the simulation actually produces
-is how a game acquires screens nobody needed.
+Then: **inspect the actual simulated three-day output** before designing anything. That output
+decides what the reception surfaces need to communicate. Only after that, the M5 UI.
+
+Inspecting first is not a formality. Designing a dashboard before seeing what the simulation
+actually produces is how a game acquires screens nobody needed.
+
+## The line to keep pinned
+
+> **Facts first. Narrative second.**
+
+If the simulator can explain why 43 people heard the track, why 17 engaged, why 6 became fans, and
+why Respect moved while Fame barely did, the interface has something real to communicate.
+
+## What the suite already assumes
+
+The E2E collision that produced `LOW SIGNAL` established it in practice: **careers are isolated,
+world activity is shared.** Two careers releasing into Johannesburg both appear in its feed. That is
+the environment the simulator operates in, and cohorts belong to the world rather than to a career.
 
 ## Out of scope
 
