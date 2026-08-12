@@ -118,6 +118,37 @@ export const GameEventType = {
   OpportunityConflictDetected: "opportunity.conflict_detected",
   /** The director ran. Says what it considered, not only what it produced. */
   OpportunityDirectorRan: "opportunity.director_ran",
+
+  /* --- M8: Battles ------------------------------------------------------ */
+  /**
+   * A competitive event, step by step.
+   *
+   * Two of these are endings and they are deliberately two rather than one:
+   * refusing a challenge and losing a battle are different histories, and the
+   * person on the other side cares which. `BattleChallengeDeclined` is not a
+   * defeat, is not an expiry, and must never be priced as either.
+   *
+   * `BattleResolved` is the only one that is not `PRIVATE`. A completed battle
+   * is something the scene saw; a challenge nobody accepted is not, and the
+   * world learns what happened rather than what was proposed.
+   */
+  BattleChallengeIssued: "battle.challenge_issued",
+  BattleChallengeAccepted: "battle.challenge_accepted",
+  BattleChallengeDeclined: "battle.challenge_declined",
+  /** What was knowable about them, recorded as it stood when it was asked for. */
+  BattleOpponentScouted: "battle.opponent_scouted",
+  /** The angle, declared before preparation and never after. */
+  BattleStrategyDeclared: "battle.strategy_declared",
+  /** Time and money spent on it, through the ledger the career already has. */
+  BattlePreparationCompleted: "battle.preparation_completed",
+  /** Both rounds exist as canonical facts. Nothing has been judged. */
+  BattlePerformed: "battle.performed",
+  /** One judge, having decided, with its own decomposition. */
+  BattleJudged: "battle.judged",
+  /** The panel's agreement. LOCAL_PUBLIC: the scene saw it. */
+  BattleResolved: "battle.resolved",
+  /** Standing and relationship movement, with the facts that caused them. */
+  BattleConsequencesApplied: "battle.consequences_applied",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -195,6 +226,17 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "opportunity.withdrawn": "An offer became impossible",
   "opportunity.conflict_detected": "Two offers want the same night",
   "opportunity.director_ran": "The world considered what to offer",
+
+  "battle.challenge_issued": "Somebody called you out",
+  "battle.challenge_accepted": "You took the challenge",
+  "battle.challenge_declined": "You turned the challenge down",
+  "battle.opponent_scouted": "You looked into them",
+  "battle.strategy_declared": "You picked your angle",
+  "battle.preparation_completed": "You prepared for it",
+  "battle.performed": "The battle happened",
+  "battle.judged": "A judge decided",
+  "battle.resolved": "A battle was decided",
+  "battle.consequences_applied": "The battle moved things",
 };
 
 export type RecordEventInput = {

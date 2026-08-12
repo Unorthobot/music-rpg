@@ -67,30 +67,12 @@ export const tracks = pgTable(
   }),
 );
 
-/** Battle record. Same reasoning as `tracks`: a real spine for an honest count. */
-export const battles = pgTable(
-  "battles",
-  {
-    id: text("id").primaryKey(),
-    worldId: text("world_id")
-      .notNull()
-      .references(() => worlds.id, { onDelete: "cascade" }),
-    careerId: text("career_id").references(() => careers.id, { onDelete: "cascade" }),
-    challengerId: text("challenger_id").notNull(),
-    opponentId: text("opponent_id"),
-    status: text("status")
-      .$type<"SCHEDULED" | "COMPLETED" | "FORFEITED">()
-      .notNull()
-      .default("SCHEDULED"),
-    outcome: text("outcome").$type<"WON" | "LOST" | "DRAW">(),
-    occurredAt: timestamp("occurred_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => ({
-    careerIdx: index("battles_career_id_idx").on(table.careerId),
-  }),
-);
+/*
+ * `battles` used to live here, as the same kind of honest spine `tracks` is. M8
+ * gave it a lifetime, participants with real references, performances and a
+ * panel, at which point it stopped being a projection and became a system —
+ * so it moved to `./battles` with the tables it now owns.
+ */
 
 export type CareerAudienceRow = typeof careerAudience.$inferSelect;
 export type TrackRow = typeof tracks.$inferSelect;
-export type BattleRow = typeof battles.$inferSelect;

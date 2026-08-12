@@ -137,6 +137,14 @@ export const OPPORTUNITY_TYPES = [
   "SHOWCASE_SLOT",
   /** Generated: somebody you have made a record with wants to make another. */
   "SESSION_INVITE",
+  /**
+   * Generated: a rival artist wants to battle you.
+   *
+   * The invitation, not the event. The battle has its own row and its own
+   * lifetime — this is only the question, and refusing it is a complete and
+   * legitimate answer rather than a blocked path.
+   */
+  "BATTLE_CHALLENGE",
 ] as const;
 export type OpportunityType = (typeof OPPORTUNITY_TYPES)[number];
 
@@ -193,10 +201,16 @@ export const CALENDAR_ITEM_TYPES = [
   "PERFORMANCE",
   "RELEASE",
   "MEETING",
+  /**
+   * Preparation books one of these, deliberately. Rehearsing for a battle is
+   * rehearsing, and inventing a `BATTLE_PREP` type would have claimed otherwise.
+   */
   "REHEARSAL",
   "MEDIA",
   "REST",
   "OTHER",
+  /** A night you agreed to fight on. The commitment, not the challenge. */
+  "BATTLE",
 ] as const;
 export type CalendarItemType = (typeof CALENDAR_ITEM_TYPES)[number];
 

@@ -10,6 +10,8 @@ import {
 } from "@music-rpg/database";
 import { GameEventType, recordEvent } from "@music-rpg/events";
 import {
+  battleChallengeMessage,
+  battleChallengeReplyMessage,
   playerReplyMessage,
   sessionInviteMessage,
   sessionInviteReplyMessage,
@@ -83,6 +85,8 @@ type OfferPayload = {
   billing?: ShowcaseBilling;
   offerLine?: string;
   afterReleaseTitle?: string;
+  challengeLine?: string;
+  termsLine?: string;
 };
 
 /** What the source character says about this offer, at this moment. */
@@ -113,6 +117,21 @@ function lineFor(
       });
     }
     return sessionInviteReplyMessage({ producerSlug: character.slug, moment });
+  }
+
+  /*
+   * A rival calling somebody out. M7's test for a new opportunity type was "who
+   * would tell the player", and the answer is the challenger, by name, in their
+   * own thread — not a system notification about a battle being available.
+   */
+  if (row.type === "BATTLE_CHALLENGE") {
+    if (moment === "OFFER") {
+      return battleChallengeMessage({
+        challengeLine: payload.challengeLine ?? "Come and say that in front of people.",
+        termsLine: payload.termsLine ?? "",
+      });
+    }
+    return battleChallengeReplyMessage({ rivalSlug: character.slug, moment });
   }
 
   /*

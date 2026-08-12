@@ -114,12 +114,18 @@ describe("home counters read from projections", () => {
       },
     ]);
 
+    /*
+     * M8 replaced the M1 stub's three statuses with a real lifecycle, so the
+     * state this row is asserting — the battle happened and is over — is now
+     * called RESOLVED. `COMPLETED` was never a DB-enforced value; it is now,
+     * and the counter still counts every battle whatever state it is in.
+     */
     await test.handle.db.insert(battles).values({
       id: ids.generic(),
       worldId,
       careerId,
       challengerId: artistId,
-      status: "COMPLETED",
+      status: "RESOLVED",
       outcome: "WON",
     });
 

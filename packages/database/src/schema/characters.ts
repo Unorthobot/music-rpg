@@ -7,6 +7,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import type { CharacterRole, CharacterTier } from "@music-rpg/shared";
+import { artists } from "./artist";
 import { careers } from "./career";
 import { worlds } from "./world";
 
@@ -37,6 +38,22 @@ export const characters = pgTable(
     personality: jsonb("personality").$type<Record<string, number>>().notNull().default({}),
     motives: jsonb("motives").$type<Record<string, unknown>>().notNull().default({}),
     preferences: jsonb("preferences").$type<Record<string, unknown>>().notNull().default({}),
+    /**
+     * This person is also an artist in the world.
+     *
+     * A general identity relation, not battle glue. The world has kept two
+     * ontologies since M1 and both are right: characters are people a career
+     * *deals with* — they message you, they offer you things, they form an
+     * opinion of you — and artists are people who *make music*, with skills,
+     * psychology and a sound. Nobody needed to be both until rivals existed.
+     *
+     * Null for almost everybody, and correctly so: a promoter is not an artist,
+     * and a group-member candidate is an artist nobody has a social
+     * relationship with yet. Battles are the first consumer; features,
+     * collaborations, signings and recruitment are the obvious next ones, and
+     * none of them should have to learn a battle-shaped name for this.
+     */
+    artistId: text("artist_id").references(() => artists.id, { onDelete: "set null" }),
     currentGoal: text("current_goal"),
     currentMood: text("current_mood"),
     status: text("status").notNull().default("ACTIVE"),
@@ -46,6 +63,9 @@ export const characters = pgTable(
   (table) => ({
     worldSlugIdx: uniqueIndex("characters_world_slug_key").on(table.worldId, table.slug),
     roleIdx: index("characters_role_idx").on(table.role),
+    /* One artist has at most one social face. Nulls are distinct, so everybody
+     * who is not an artist coexists happily. */
+    artistIdx: uniqueIndex("characters_artist_key").on(table.artistId),
   }),
 );
 

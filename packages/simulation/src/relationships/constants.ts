@@ -182,3 +182,71 @@ export const RELATIONSHIP_BANDS: [number, string][] = [
   [64, "strong"],
   [82, "exceptional"],
 ];
+
+/* --- Competition (M8) ------------------------------------------------------ */
+
+/**
+ * What a battle does between two people.
+ *
+ * M8 is the first system that makes `rivalry` move at all — the dimension has
+ * existed since M6 and nothing could produce it. These are the numbers that
+ * change that, and two properties of them are the milestone's position:
+ *
+ * **Rivalry is not tension.** They are moved by different things here and neither
+ * implies the other. Two artists who respect each other enormously and measure
+ * themselves against each other constantly is a real and interesting
+ * relationship, and it has to be reachable: winning a close battle raises
+ * rivalry *and* respect, and touches tension not at all.
+ *
+ * **Refusing costs no respect.** `RESPECT_CHALLENGE_DECLINED` does not exist,
+ * deliberately, and its absence is load-bearing rather than an omission. A
+ * declined challenge raises familiarity a little and tension a little — they
+ * asked, you said no, and that is now between you — and moves respect in neither
+ * direction. "I don't battle" is a legitimate artist identity and the model must
+ * not quietly tax it.
+ */
+
+/** Being called out is somebody deciding you are worth measuring against. */
+export const RIVALRY_CHALLENGE_ISSUED = 6;
+export const FAMILIARITY_CHALLENGE = 2;
+
+/** Agreeing to be measured. They rate you for turning up, before anything else. */
+export const RIVALRY_CHALLENGE_ACCEPTED = 4;
+export const RESPECT_CHALLENGE_ACCEPTED = 2.5;
+
+/**
+ * Refusing. Tension, because it is now unresolved between you — and nothing else.
+ * There is no respect term here and there must not be one.
+ */
+export const TENSION_CHALLENGE_DECLINED = 5;
+
+/** Beating somebody makes them measure themselves against you far harder. */
+export const RIVALRY_BATTLE_WON = 14;
+export const RESPECT_BATTLE_WON = 7;
+
+/**
+ * Losing. Rivalry still moves — you have unfinished business with them now — and
+ * respect moves a little, because competing is not nothing and they know it.
+ */
+export const RIVALRY_BATTLE_LOST = 9;
+export const RESPECT_BATTLE_LOST = 2;
+
+/** Nearly going the other way is what makes two people keep circling each other. */
+export const RIVALRY_CLOSE_CONTEST = 7;
+export const RESPECT_CLOSE_CONTEST = 3;
+
+/**
+ * A sweep settles something. Less unfinished business, more friction — a decisive
+ * result is the one people are graceless about.
+ */
+export const RIVALRY_DECISIVE_CONTEST = 3;
+export const TENSION_DECISIVE_CONTEST = 4;
+
+/**
+ * The judge whose only question is craft went their way regardless of the result.
+ *
+ * Respect only. This is what lets somebody lose a battle and be rated more
+ * highly for it than they were before, which is a true thing about competition
+ * and the clearest evidence that rivalry and respect are independent.
+ */
+export const RESPECT_CRAFT_ACKNOWLEDGED = 5;

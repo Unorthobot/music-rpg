@@ -14,6 +14,7 @@ import {
   type RankingResult,
   type ShowcaseBilling,
 } from "@music-rpg/shared";
+import { battleChallengeEligibility, rankBattleChallenge } from "../battles/challenge";
 import { sessionInviteEligibility, showcaseEligibility } from "./eligibility";
 import { rankSessionInvite, rankShowcase } from "./ranking";
 import { sceneStanding } from "./standing";
@@ -54,6 +55,11 @@ export function showcaseIdentityKey(promoterSlug: string, nightGameTime: Date): 
 /** Identity for one person asking for one more session, once per record out. */
 export function sessionInviteIdentityKey(producerSlug: string, releaseId: string): string {
   return `producer:${producerSlug}:after:${releaseId}`;
+}
+
+/** Identity for one rival calling you out on one night. Source and trigger. */
+export function battleChallengeIdentityKey(rivalSlug: string, nightGameTime: Date): string {
+  return `rival:${rivalSlug}:night:${nightGameTime.toISOString().slice(0, 10)}`;
 }
 
 /* --- Assembling what the world could offer -------------------------------- */
@@ -182,6 +188,75 @@ function sessionInviteCandidate(
 }
 
 /**
+ * A rival with something to settle.
+ *
+ * Assembled exactly as the other two are, from a structured profile the world
+ * seeded. The battle itself is not created here and must not be — this is the
+ * *invitation*, and the player answering it is what brings an event into
+ * existence.
+ */
+function battleChallengeCandidate(
+  facts: DirectorFacts,
+  rival: PersonFacts,
+): OpportunityCandidate | null {
+  const profile = rival.battler;
+  if (!profile) return null;
+  // A rival with no artist behind them could not perform. The pair is the person.
+  if (!rival.artistId) return null;
+
+  const scene = facts.scenes.find((entry) => entry.slug === profile.sceneSlug);
+  if (!scene) return null;
+
+  const nightGameTime = addDays(facts.currentGameTime, profile.noticeDays);
+  const standing = sceneStanding(profile.sceneSlug, facts.cohorts);
+
+  const reason =
+    profile.motive === "DEFEND_THE_SCENE"
+      ? `${rival.name} has heard your name enough times to want to find out what is behind it.`
+      : profile.motive === "MAKE_A_NAME"
+        ? `${rival.name} is looking for somebody with something worth taking.`
+        : `${rival.name} has decided there is something between you worth settling.`;
+
+  return {
+    identityKey: battleChallengeIdentityKey(rival.slug, nightGameTime),
+    type: "BATTLE_CHALLENGE",
+    origin: "GENERATED",
+    sourceEntityType: "CHARACTER",
+    sourceEntityId: rival.characterId,
+    sceneId: scene.id,
+    sceneSlug: scene.slug,
+    triggerReason: reason,
+    triggerState: {
+      sceneStanding: standing.value,
+      sceneStandingContributors: standing.contributors,
+      standard: profile.standard,
+      motive: profile.motive,
+      // M6's, read. Never re-counted from battle history here.
+      rivalry: roundTo(rival.relationship?.rivalry ?? 0, 3),
+      respect: roundTo(rival.relationship?.respect ?? 0, 3),
+      priorBattles: rival.battleCount,
+      heat: facts.standing.heat,
+      releasesOut: facts.releases.filter((release) => release.daysSimulated > 0).length,
+    },
+    payload: {
+      rivalName: rival.name,
+      rivalArtistId: rival.artistId,
+      venueName: profile.venueName,
+      sceneName: scene.name,
+      capacity: profile.capacity,
+      challengeLine: profile.challengeLine,
+      termsLine: profile.termsLine,
+      nightGameTime: nightGameTime.toISOString(),
+    },
+    availableAtGameTime: facts.currentGameTime,
+    expiresAtGameTime: addDays(
+      facts.currentGameTime,
+      Math.min(profile.answerByDays, profile.noticeDays),
+    ),
+  };
+}
+
+/**
  * Everything the world could put in front of this career today.
  *
  * Assembled from what the world actually contains — the promoters it has, the
@@ -214,6 +289,20 @@ export function assembleCandidates(facts: DirectorFacts): OpportunityCandidate[]
     if (candidate) candidates.push(candidate);
   }
 
+  /*
+   * Rivals. A world with no opponents offers no challenges, which was the actual
+   * state of the game until M8 seeded some — the same honest behaviour a world
+   * with no promoters has always had for nights.
+   */
+  const rivals = facts.people
+    .filter((person) => person.battler !== null)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+
+  for (const rival of rivals) {
+    const candidate = battleChallengeCandidate(facts, rival);
+    if (candidate) candidates.push(candidate);
+  }
+
   return candidates;
 }
 
@@ -243,6 +332,17 @@ function eligibilityFor(
     });
   }
 
+  if (candidate.type === "BATTLE_CHALLENGE") {
+    return battleChallengeEligibility({
+      facts,
+      rival: person,
+      identityKey: candidate.identityKey,
+      nightGameTime: new Date(String(candidate.payload.nightGameTime)),
+      hasOutstandingBattle: person.outstandingBattle,
+      priorBattleCount: person.battleCount,
+    });
+  }
+
   return sessionInviteEligibility({ facts, producer: person, identityKey: candidate.identityKey });
 }
 
@@ -260,6 +360,10 @@ function rankingFor(
       billing: candidate.payload.billing as ShowcaseBilling,
       liveCount,
     });
+  }
+
+  if (candidate.type === "BATTLE_CHALLENGE") {
+    return rankBattleChallenge({ facts, rival: person, liveCount });
   }
 
   return rankSessionInvite({

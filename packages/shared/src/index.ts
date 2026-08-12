@@ -1,3 +1,4 @@
+export * from "./battles";
 export * from "./brand";
 export * from "./config";
 export * from "./discovery";

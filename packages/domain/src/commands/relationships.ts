@@ -12,7 +12,7 @@ import {
   type RelationshipRow,
 } from "@music-rpg/database";
 import { GameEventType, recordEvent } from "@music-rpg/events";
-import { deriveRelationship } from "@music-rpg/simulation";
+import { deriveRelationship, relationshipKindFor } from "@music-rpg/simulation";
 import {
   RELATIONSHIP_DIMENSIONS,
   RELATIONSHIP_ENGINE_VERSION,
@@ -262,6 +262,74 @@ function extractInteractions(
       continue;
     }
 
+    /*
+     * Competition. M8's, and the first things that move rivalry.
+     *
+     * Three of these target the character directly, because a battle is
+     * something that happens between two people rather than to a track.
+     */
+    if (event.eventType === GameEventType.BattleChallengeIssued) {
+      if (!event.targetId) continue;
+      push(
+        { type: "CHARACTER", id: event.targetId },
+        { kind: "CHALLENGE_ISSUED", sequence: event.sequence, occurredAt: event.occurredAt },
+      );
+      continue;
+    }
+
+    if (event.eventType === GameEventType.BattleChallengeAccepted) {
+      if (!event.targetId) continue;
+      push(
+        { type: "CHARACTER", id: event.targetId },
+        { kind: "CHALLENGE_ACCEPTED", sequence: event.sequence, occurredAt: event.occurredAt },
+      );
+      continue;
+    }
+
+    /*
+     * Refusing. A real, remembered outcome that is not a loss — and the
+     * derivation it feeds cannot move respect in either direction.
+     */
+    if (event.eventType === GameEventType.BattleChallengeDeclined) {
+      if (!event.targetId) continue;
+      push(
+        { type: "CHARACTER", id: event.targetId },
+        { kind: "CHALLENGE_DECLINED", sequence: event.sequence, occurredAt: event.occurredAt },
+      );
+      continue;
+    }
+
+    /*
+     * What the battle was, semantically.
+     *
+     * The interactions are *read from the event payload*, where the pure
+     * consequence module put them — not re-derived here from a result. One
+     * source of truth: the judging established what happened, and this fold
+     * prices it without forming a second opinion about how close it was.
+     */
+    if (event.eventType === GameEventType.BattleConsequencesApplied) {
+      if (!event.targetId) continue;
+      const payload = event.payload as {
+        interactions?: { kind: string; contestMargin?: number }[];
+      };
+
+      for (const [index, entry] of (payload.interactions ?? []).entries()) {
+        push(
+          { type: "CHARACTER", id: event.targetId },
+          {
+            kind: entry.kind as InteractionKind,
+            // Fractional, so several interactions from one event stay ordered.
+            sequence: event.sequence + index / 100,
+            occurredAt: event.occurredAt,
+            ...(entry.contestMargin !== undefined
+              ? { contestMargin: entry.contestMargin }
+              : {}),
+          },
+        );
+      }
+      continue;
+    }
+
     if (event.eventType === GameEventType.ReceptionTickCompleted) {
       const trackId = event.targetId ? wiring.trackByRelease.get(event.targetId) : undefined;
       const sessionId = trackId ? wiring.sessionByTrack.get(trackId) : undefined;
@@ -371,12 +439,31 @@ export async function syncCareerRelationships(
         rechosen: (current?.interactionCount ?? 0) > 0,
       });
 
+      /*
+       * What this relationship currently *is*.
+       *
+       * M6 hardcoded `CREATIVE_PARTNER` here, which is why `RIVAL` was declared
+       * and never assigned: anything set elsewhere was overwritten on the next
+       * day advance, and rivalry could never become durable. The kind is now
+       * derived from what has actually passed between the two of them.
+       *
+       * It is a label for the dominant *current* relation and never a verdict on
+       * the history. The dimensions underneath accumulate independently and are
+       * untouched by this, so two people who battled and then made a record
+       * together keep both facts — and the label is free to change back.
+       */
+      const kind = relationshipKindFor({
+        history: list.map((interaction) => interaction.kind),
+        state: outcome.state,
+        current: current?.kind ?? null,
+      });
+
       const values = {
         careerId: career.id,
         worldId: career.worldId,
         subjectType,
         subjectId,
-        kind: "CREATIVE_PARTNER" as const,
+        kind,
         ...outcome.state,
         interactionCount: (current?.interactionCount ?? 0) + outcome.interactionCount,
         derivedThroughSequence: highestSequence,
@@ -417,6 +504,9 @@ export async function syncCareerRelationships(
           engineVersion: RELATIONSHIP_ENGINE_VERSION,
           interactions: outcome.steps.map((step) => ({ kind: step.kind, delta: step.delta })),
           state: outcome.state,
+          // What they are to each other now, and what they were before it.
+          kind,
+          kindBefore: current?.kind ?? null,
         },
       });
     }

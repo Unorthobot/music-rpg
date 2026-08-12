@@ -130,3 +130,52 @@ export const RELATIONSHIP_CHEMISTRY_SHARE = 0.2;
 
 /** Answering inside a week is urgent; beyond that, urgency decays. */
 export const TIMELY_WINDOW_DAYS = 7;
+
+/* --- Battle challenges (M8) ------------------------------------------------ */
+
+/**
+ * What being called out is worth being told about at all.
+ *
+ * Below `SHOWCASE_BASE` deliberately. A paid night in front of a room a promoter
+ * built is a bigger thing to put in front of somebody than an argument with one
+ * rival, and a director that surfaced challenges above bookings would be
+ * insisting on a career the player may not want.
+ */
+export const CHALLENGE_BASE = 15;
+
+/**
+ * What existing rivalry is worth to how much a challenge deserves surfacing.
+ *
+ * Modest on purpose. Somebody who has measured themselves against you before has
+ * more reason to do it again — but this must never become a ratchet where
+ * refusing raises the pressure to accept. Rivalry is moved by battles that
+ * *happened*, not by ones that were declined, so this term cannot escalate at a
+ * player who does not battle.
+ */
+export const CHALLENGE_RIVALRY_WEIGHT = 0.45;
+
+/**
+ * What a challenge is worth when the rival barely rates you, as a fraction.
+ *
+ * The missing half of the model, found by inspection: a showcase base is scaled
+ * by `SUPPORT_BILLING_FACTOR` when the scene does not rate a career enough to
+ * headline, and a challenge had no equivalent — so a rival who *just* scraped
+ * past their own bar was proposing something the director weighed at double a
+ * promoter's support slot.
+ *
+ * A rival calling out somebody they barely rate is exactly the same kind of
+ * speculative, low-stakes proposition a support slot is, and it should be priced
+ * the same way. This is that distinction expressed continuously rather than as
+ * two billings, because a challenge has no equivalent of being on the bill.
+ */
+export const CHALLENGE_INTEREST_FLOOR = 0.4;
+
+/**
+ * How far above their own bar a career has to be before a rival is fully
+ * interested, in points of scene standing.
+ *
+ * Underground numbers are single digits, so eight points above a standard is a
+ * long way — it is the difference between "there is something in this for me"
+ * and "everybody is talking about them".
+ */
+export const CHALLENGE_FULL_INTEREST_MARGIN = 8;

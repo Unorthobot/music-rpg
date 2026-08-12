@@ -27,6 +27,7 @@ import {
   formatMoney,
   ids,
   ok,
+  type BattlerFacts,
   type CandidateAssessment,
   type CohortStandingFacts,
   type CommitmentFacts,
@@ -46,6 +47,7 @@ import {
   loadProducer,
   producerProfileOfCharacter,
 } from "../internal/book-session";
+import { loadBattleFactsByCharacter } from "./battles";
 import { loadOwnedCareer } from "../internal/career";
 import { DAYS } from "../internal/clock";
 
@@ -84,6 +86,12 @@ function stateOf(row: Record<string, unknown>): RelationshipState {
 
 function promoterFactsOf(preferences: Record<string, unknown> | null): PromoterFacts | null {
   const profile = (preferences as { promoter?: PromoterFacts } | null)?.promoter;
+  return profile ?? null;
+}
+
+/** A rival's competitive profile, read structurally exactly as a promoter's is. */
+function battlerFactsOf(preferences: Record<string, unknown> | null): BattlerFacts | null {
+  const profile = (preferences as { battler?: BattlerFacts } | null)?.battler;
   return profile ?? null;
 }
 
@@ -184,6 +192,13 @@ export async function loadDirectorFacts(
   const momentsFor = (subjectId: string): MomentKind[] =>
     momentRows.filter((row) => row.subjectId === subjectId).map((row) => row.kind);
 
+  /*
+   * Competitive history, read from `battles` rather than inferred from offers.
+   * An accepted battle that has not happened and an unanswered challenge are
+   * different facts, and only the first should stop somebody calling you out.
+   */
+  const battleFacts = await loadBattleFactsByCharacter(ctx.db, career.id);
+
   const people: PersonFacts[] = characterRows.map((character) => {
     const relationship = relationshipRows.find((row) => row.subjectId === character.id);
     return {
@@ -197,6 +212,11 @@ export async function loadDirectorFacts(
       openMomentKinds: momentsFor(character.id),
       sessionCostMinor: sessionCostOf(character.preferences),
       promoter: promoterFactsOf(character.preferences),
+      battler: battlerFactsOf(character.preferences),
+      // The general identity relation. Null for everybody who is not an artist.
+      artistId: character.artistId,
+      outstandingBattle: battleFacts.get(character.id)?.outstanding ?? false,
+      battleCount: battleFacts.get(character.id)?.count ?? 0,
     };
   });
 
@@ -612,6 +632,41 @@ async function createOpportunities(
         expiresAtGameTime: candidate.expiresAtGameTime?.toISOString() ?? null,
       },
     });
+
+    /*
+     * A challenge is a thing one person did to another, not only an offer that
+     * appeared. The opportunity event above records that the world produced
+     * something; this records that somebody decided the player was worth
+     * measuring themselves against, which is what M6's fold reads to move
+     * rivalry for the first time in the game's history.
+     */
+    if (candidate.type === "BATTLE_CHALLENGE") {
+      await recordEvent(tx, {
+        worldId: input.career.worldId,
+        careerId: input.career.id,
+        eventType: GameEventType.BattleChallengeIssued,
+        actorType: "SYSTEM",
+        actorId: candidate.sourceEntityId,
+        /* The person. This is the fold's key. */
+        targetType: "CHARACTER",
+        targetId: candidate.sourceEntityId,
+        /*
+         * Private. A challenge nobody has answered is not something the scene
+         * knows about — only a completed battle reaches the world.
+         */
+        visibility: "PRIVATE",
+        importance: 50,
+        occurredAt: input.gameTime,
+        idempotencyKey: `challenge:${opportunity.id}:issued`,
+        payload: {
+          opportunityId: opportunity.id,
+          rivalName: candidate.payload.rivalName ?? null,
+          venueName: candidate.payload.venueName ?? null,
+          scene: candidate.sceneSlug,
+          nightGameTime: candidate.payload.nightGameTime ?? null,
+        },
+      });
+    }
 
     created.push(opportunity);
   }

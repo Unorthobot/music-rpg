@@ -16,3 +16,4 @@ export * from "./reception";
 export * from "./relationships";
 export * from "./crew";
 export * from "./moments";
+export * from "./battles";

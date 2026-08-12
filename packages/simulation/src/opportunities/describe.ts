@@ -30,6 +30,7 @@ export const ELIGIBILITY_RULE_LABELS: Record<EligibilityRule, string> = {
   WORKED_TOGETHER: "Never worked together",
   THEY_RATE_THE_WORK: "They don't rate it yet",
   SOMETHING_LEFT_TO_DO: "No reason to go again",
+  NO_BATTLE_OUTSTANDING: "Something already unsettled between you",
   NOT_MID_SESSION: "Already in a session",
 };
 

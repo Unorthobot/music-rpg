@@ -9,6 +9,7 @@ import {
   expandPsychology,
   expandSkills,
   expandSound,
+  opponentSeeds,
   traitCatalogue,
   worldCharacterSeeds,
   worldSeeds,
@@ -45,6 +46,8 @@ export type SeedResult = {
   questions: number;
   candidates: number;
   characters: number;
+  /** Rival artists, seeded as an artist row and a character row each. */
+  opponents: number;
   audienceCohorts: number;
 };
 
@@ -57,6 +60,7 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
     questions: 0,
     candidates: 0,
     characters: 0,
+    opponents: 0,
     audienceCohorts: 0,
   };
 
@@ -228,6 +232,116 @@ export async function seedDatabase(db: Database): Promise<SeedResult> {
           set: values,
         });
       result.characters += 1;
+    }
+
+    /*
+     * --- Opponents ------------------------------------------------------
+     *
+     * The one population that is seeded as a *pair*. A rival needs craft to
+     * perform with and a social face to be dealt with, and those are two
+     * different tables for good reasons that predate this milestone — so each
+     * opponent is an `artists` row and a `characters` row joined by
+     * `characters.artist_id`.
+     *
+     * Written before the group candidates below so that a partial seed leaves
+     * the world with complete people rather than half of three of them.
+     */
+    for (const opponent of opponentSeeds) {
+      const slug = slugify(opponent.slug);
+      const sound = expandSound(opponent.sound);
+      const skills = expandSkills(opponent.skills);
+      const psychology = expandPsychology(opponent.psychology);
+
+      const existingOpponent = await db
+        .select()
+        .from(artists)
+        .where(eq(artists.slug, slug))
+        .limit(1);
+
+      let artistId = existingOpponent[0]?.id;
+
+      if (!artistId) {
+        artistId = ids.artist();
+
+        await db.insert(artists).values({
+          id: artistId,
+          worldId,
+          stageName: opponent.stageName,
+          slug,
+          origin: opponent.origin,
+          biography: opponent.biography,
+          // Ordinary world NPCs. Nothing about a rival is special-cased.
+          artistType: "WORLD_NPC",
+          status: "ACTIVE",
+          archetype: opponent.archetype,
+          isPublic: true,
+        });
+
+        await db.insert(artistSkills).values({
+          artistId,
+          lyricism: skills.lyricism,
+          flow: skills.flow,
+          melody: skills.melody,
+          storytelling: skills.storytelling,
+          performance: skills.performance,
+          production: skills.production,
+          experimentation: skills.experimentation,
+          versatility: skills.versatility,
+          battleIq: skills.battleIQ,
+        });
+
+        await db.insert(artistPsychology).values({ artistId, ...psychology });
+
+        await db.insert(soundProfiles).values({
+          id: ids.soundProfile(),
+          ownerType: "ARTIST",
+          ownerId: artistId,
+          ...sound,
+          summary: describeSound(sound),
+          derivedFrom: { source: "seed", slug: opponent.slug, role: "OPPONENT" },
+        });
+
+        for (const traitKey of opponent.traits) {
+          await db.insert(artistTraits).values({
+            id: ids.trait(),
+            artistId,
+            traitKey,
+            source: "SEED",
+            strength: 65,
+          });
+        }
+      }
+
+      /*
+       * The social half. `battler` sits in `preferences` exactly where a
+       * producer's and a promoter's profiles sit, because the director reads all
+       * three the same structural way.
+       */
+      const characterValues = {
+        worldId,
+        name: opponent.stageName,
+        role: "ARTIST" as const,
+        tier: "WORLD" as const,
+        biography: opponent.biography,
+        quote: opponent.quote,
+        origin: opponent.origin,
+        personality: opponent.personality,
+        motives: opponent.motives,
+        preferences: { battler: opponent.battler },
+        currentGoal: opponent.currentGoal,
+        currentMood: opponent.currentMood,
+        artistId,
+      };
+
+      await db
+        .insert(characters)
+        .values({ id: ids.generic(), slug, ...characterValues })
+        .onConflictDoUpdate({
+          target: [characters.worldId, characters.slug],
+          set: characterValues,
+        });
+
+      result.opponents += 1;
     }
 
     for (const candidate of candidateSeeds) {

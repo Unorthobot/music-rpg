@@ -72,6 +72,12 @@ export const ANALYTICS_EVENTS = [
   "opportunity_director_ran",
   "opportunity_accepted",
   "opportunity_declined",
+
+  /* --- M8: Battles ----------------------------------------------------- */
+  "battle_challenge_accepted",
+  /** Refusing is a real path, and is measured as one rather than as a drop-off. */
+  "battle_challenge_declined",
+  "battle_resolved",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

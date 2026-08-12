@@ -126,6 +126,53 @@ export type PersonFacts = {
   sessionCostMinor: number | null;
   /** Their booking profile, when they are a promoter. */
   promoter: PromoterFacts | null;
+  /**
+   * Their competitive profile, when they are a rival artist.
+   *
+   * Null for everybody who is not one, which is almost everybody. Read exactly
+   * as `promoter` is: a structured profile the director consumes rather than a
+   * new kind of person it has to learn about.
+   */
+  battler: BattlerFacts | null;
+  /**
+   * The artist this person also is, where they are one.
+   *
+   * The general identity relation, not a battle field. A verse can only be
+   * derived from an artist and a relationship can only be held with a character,
+   * so anything competitive needs both halves and this is the join.
+   */
+  artistId: string | null;
+  /**
+   * A battle with them that has been agreed and not yet fought.
+   *
+   * Read from `battles`, never inferred from the opportunity. An accepted battle
+   * and an unanswered challenge are different facts, and only the first of them
+   * should stop somebody calling you out again.
+   */
+  outstandingBattle: boolean;
+  /** How many battles this career and they have actually been through. */
+  battleCount: number;
+};
+
+/**
+ * Somebody who competes, as the director sees them.
+ *
+ * The `PromoterFacts` shape and for the same reason: a closed set of recorded
+ * values the director reads structurally, so that "why did they challenge me"
+ * is answerable from numbers the world actually holds.
+ */
+export type BattlerFacts = {
+  sceneSlug: string;
+  venueName: string;
+  capacity: number;
+  /** The scene standing they want before you are worth their time. */
+  standard: number;
+  noticeDays: number;
+  answerByDays: number;
+  /** Why they compete. The three have different preconditions. */
+  motive: "MAKE_A_NAME" | "DEFEND_THE_SCENE" | "SETTLE_SOMETHING";
+  challengeLine: string;
+  termsLine: string;
 };
 
 export type PromoterFacts = {
@@ -223,6 +270,17 @@ export const ELIGIBILITY_RULES = [
   "SOMETHING_LEFT_TO_DO",
   /** You are not already in the middle of a session. */
   "NOT_MID_SESSION",
+
+  /* Battle challenge */
+  /**
+   * Nothing competitive between you two is already unsettled.
+   *
+   * One argument at a time. Distinct from `SOURCE_NOT_ALREADY_WAITING`, which is
+   * about an unanswered *offer*: this is about an accepted battle that has not
+   * been fought yet, or one being fought now. Somebody who has called you out
+   * does not call you out again until the first one has happened.
+   */
+  "NO_BATTLE_OUTSTANDING",
 ] as const;
 export type EligibilityRule = (typeof ELIGIBILITY_RULES)[number];
 

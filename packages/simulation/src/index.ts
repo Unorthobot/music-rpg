@@ -1,3 +1,4 @@
+export * from "./battles";
 export * from "./chemistry";
 export * from "./describe";
 export * from "./opportunities";
@@ -14,6 +15,7 @@ export * from "./content/archetypes";
 export * from "./content/audiences";
 export * from "./content/characters";
 export * from "./content/candidates";
+export * from "./content/opponents";
 export * from "./content/questions";
 export * from "./content/traits";
 export * from "./content/world";

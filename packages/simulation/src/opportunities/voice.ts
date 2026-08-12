@@ -214,3 +214,88 @@ export function sessionInviteReplyMessage(input: {
 export function playerReplyMessage(moment: "ACCEPTED" | "DECLINED"): string {
   return moment === "ACCEPTED" ? "Taking it." : "Can't do this one.";
 }
+
+/* --- Rivals (M8) ----------------------------------------------------------- */
+
+/**
+ * What a challenger says, and what they say afterwards.
+ *
+ * M7 set the test for any new opportunity type: *who would tell the player, and
+ * where would the consequence live*. The answer for a battle is the challenger,
+ * by name, in their own thread — a rival artist, not a system — and this is that
+ * answer implemented rather than asserted.
+ *
+ * Three specific people, keyed by slug for the same reason the promoters are:
+ * these are characters the world already describes, and deriving SEKO's diction
+ * from `directness: 92` would produce something that reads like arithmetic.
+ *
+ * **The reply to a refusal is the load-bearing one.** It has to be a rival being
+ * a rival about it without the game implying the player was a coward, because
+ * the model deliberately charges no respect for declining and the writing must
+ * not quietly charge it instead. Each of the three is unbothered in their own
+ * way, and none of them says anything that reads as a verdict on the player.
+ */
+type RivalVoice = {
+  accepted: string;
+  declined: string;
+  expired: string;
+  withdrawn: string;
+};
+
+const RIVAL_VOICES: Record<string, RivalVoice> = {
+  seko: {
+    accepted: "Good. Bring something I haven't heard.",
+    // Unbothered, and pointedly not a judgement.
+    declined: "Suit yourself. I'll be there either way.",
+    expired: "You went quiet. The yard's still there.",
+    withdrawn: "You've got something else on. Another time.",
+  },
+  madala: {
+    accepted: "Then we'll find out. Take your time with it.",
+    declined: "That's a fair answer. Not everybody's arguing.",
+    expired: "The Sunday came and went. They do that.",
+    withdrawn: "You're busy. That's not a bad thing to be.",
+  },
+  kgosi: {
+    accepted: "Ha! Now it's a night. See you up there.",
+    declined: "Fair enough. Not everybody wants a roof full of people.",
+    expired: "The roof filled up without you. It happens.",
+    withdrawn: "You double-booked yourself. Rookie thing. Next time.",
+  },
+};
+
+const RIVAL_FALLBACK: RivalVoice = {
+  accepted: "Then it's on.",
+  declined: "Understood.",
+  expired: "The date passed.",
+  withdrawn: "You had something else on.",
+};
+
+/** The challenge itself. Their own line does the calling out. */
+export function battleChallengeMessage(input: {
+  challengeLine: string;
+  termsLine: string;
+}): string {
+  return `${input.challengeLine} ${input.termsLine}`;
+}
+
+export function battleChallengeReplyMessage(input: {
+  rivalSlug: string;
+  moment: OfferMoment;
+}): string | null {
+  if (input.moment === "OFFER") return null;
+  const voice = RIVAL_VOICES[input.rivalSlug] ?? RIVAL_FALLBACK;
+
+  switch (input.moment) {
+    case "ACCEPTED":
+      return voice.accepted;
+    case "DECLINED":
+      return voice.declined;
+    case "EXPIRED":
+      return voice.expired;
+    case "WITHDRAWN":
+      return voice.withdrawn;
+    default:
+      return null;
+  }
+}

@@ -1,9 +1,12 @@
 import {
+  BATTLE_INTERACTION_KINDS,
   EMPTY_RELATIONSHIP,
   RELATIONSHIP_DIMENSIONS,
   clamp,
   roundTo,
+  type InteractionKind,
   type RelationshipInteraction,
+  type RelationshipKind,
   type RelationshipState,
 } from "@music-rpg/shared";
 import {
@@ -58,6 +61,20 @@ import {
   TRUST_WORK_KEPT,
   TRUST_WORK_MASTERED,
   TRUST_WORK_RELEASED,
+  FAMILIARITY_CHALLENGE,
+  RESPECT_BATTLE_LOST,
+  RESPECT_BATTLE_WON,
+  RESPECT_CHALLENGE_ACCEPTED,
+  RESPECT_CLOSE_CONTEST,
+  RESPECT_CRAFT_ACKNOWLEDGED,
+  RIVALRY_BATTLE_LOST,
+  RIVALRY_BATTLE_WON,
+  RIVALRY_CHALLENGE_ACCEPTED,
+  RIVALRY_CHALLENGE_ISSUED,
+  RIVALRY_CLOSE_CONTEST,
+  RIVALRY_DECISIVE_CONTEST,
+  TENSION_CHALLENGE_DECLINED,
+  TENSION_DECISIVE_CONTEST,
 } from "./constants";
 
 /**
@@ -251,6 +268,74 @@ function deltaFor(
         loyalty: LOYALTY_AVOIDED_THEM,
       };
 
+    /*
+     * --- Competition. M8's, and the first things that move rivalry. ---------
+     *
+     * Semantic, like everything else here. There is no formula of the shape
+     * `rivalry = margin × multiplier` anywhere: a battle produced named things
+     * that happened, and these price them one at a time.
+     */
+
+    /** Somebody decided you were worth measuring themselves against. */
+    case "CHALLENGE_ISSUED":
+      return {
+        familiarity: FAMILIARITY_CHALLENGE,
+        rivalry: RIVALRY_CHALLENGE_ISSUED,
+      };
+
+    case "CHALLENGE_ACCEPTED":
+      return {
+        familiarity: FAMILIARITY_CHALLENGE,
+        rivalry: RIVALRY_CHALLENGE_ACCEPTED,
+        respect: RESPECT_CHALLENGE_ACCEPTED,
+      };
+
+    /*
+     * Refusing.
+     *
+     * Tension, because it is unresolved between the two of you now, and
+     * familiarity, because it happened. **No respect term, in either
+     * direction.** Declining is not losing and it is not cowardice; an artist
+     * who does not battle is an artist who does not battle, and a model that
+     * quietly docked them for it would have decided that on the player's behalf.
+     */
+    case "CHALLENGE_DECLINED":
+      return {
+        familiarity: FAMILIARITY_CHALLENGE,
+        tension: TENSION_CHALLENGE_DECLINED,
+      };
+
+    case "BATTLE_WON":
+      return {
+        ...base,
+        rivalry: RIVALRY_BATTLE_WON,
+        respect: RESPECT_BATTLE_WON,
+      };
+
+    /* Losing still moves rivalry — there is unfinished business either way. */
+    case "BATTLE_LOST":
+      return {
+        ...base,
+        rivalry: RIVALRY_BATTLE_LOST,
+        respect: RESPECT_BATTLE_LOST,
+      };
+
+    case "CLOSE_CONTEST":
+      return {
+        rivalry: RIVALRY_CLOSE_CONTEST,
+        respect: RESPECT_CLOSE_CONTEST,
+      };
+
+    case "DECISIVE_CONTEST":
+      return {
+        rivalry: RIVALRY_DECISIVE_CONTEST,
+        tension: TENSION_DECISIVE_CONTEST,
+      };
+
+    /* The Technical judge went their way whatever the panel decided overall. */
+    case "CRAFT_ACKNOWLEDGED":
+      return { respect: RESPECT_CRAFT_ACKNOWLEDGED };
+
     default:
       return base;
   }
@@ -287,4 +372,98 @@ export function deriveRelationship(input: DeriveInput): DerivationOutcome {
   }
 
   return { state, steps, interactionCount: ordered.length };
+}
+
+/* --- What the relationship is *for* ---------------------------------------- */
+
+const COMPETITIVE_KINDS = new Set<string>(BATTLE_INTERACTION_KINDS);
+
+/**
+ * Interactions that only happen because two people made something together.
+ *
+ * Crew and moment answers are deliberately absent: joining a crew or talking
+ * something through can happen with a rival as easily as with a collaborator,
+ * and neither is evidence of having been in a room making a record.
+ */
+const COLLABORATIVE_KINDS = new Set<InteractionKind>([
+  "CHOSEN",
+  "DIRECTION_GIVEN",
+  "IDEAS_REFUSED",
+  "IDEA_TAKEN",
+  "IDEAS_COMBINED",
+  "REVISION_ASKED",
+  "WORK_MASTERED",
+  "WORK_KEPT",
+  "WORK_RELEASED",
+  "WORK_RECEIVED",
+  "WORK_ABANDONED",
+]);
+
+/**
+ * What this relationship currently *is*, given everything that has passed
+ * between two people.
+ *
+ * M6 declared `RIVAL` and never assigned it: the fold hardcoded
+ * `CREATIVE_PARTNER` for everybody, so anything set elsewhere was overwritten on
+ * the next day advance and rivalry could never become durable. This is the
+ * correction, and it completes M6's own vocabulary rather than introducing a
+ * second owner of it.
+ *
+ * ## Kind is the dominant *current* relation, never a verdict on the history
+ *
+ * The important property, and the reason this is a projection over history rather
+ * than a latch. Two artists who battle and then make a record together are both
+ * things, and nothing here erases either:
+ *
+ * - The **dimensions** accumulate independently and permanently. A battle raises
+ *   `rivalry`; a session raises `creativeChemistry`; neither subtracts the other,
+ *   and `interaction_count` and the event log keep both histories whatever this
+ *   function returns.
+ * - The **kind** is only a label for which of those is currently dominant, and it
+ *   is free to change back. A rival who becomes a frequent collaborator reads as
+ *   a creative partner again, with the rivalry still on the row and still true.
+ *
+ * So this can never destroy evidence. It answers "what are these two to each
+ * other right now", and the row underneath it answers "what have they been".
+ */
+export function relationshipKindFor(input: {
+  /** Every interaction kind that has ever passed between them. */
+  history: InteractionKind[];
+  /** The state after folding. Read only to break a tie between two truths. */
+  state: RelationshipState;
+  /** What the relationship was already recorded as, where it was recorded. */
+  current?: RelationshipKind | null;
+}): RelationshipKind {
+  /*
+   * History means "has this ever happened", and the accumulated state is part of
+   * the answer. The fold only ever sees interactions *since its watermark*, so
+   * asking the row is what stops a career whose battle was last week from
+   * forgetting it was ever competitive. Both dimensions have exactly one source
+   * each — only battles move `rivalry`, only sessions move `creativeChemistry` —
+   * which is what makes reading them back a fact rather than a guess.
+   */
+  const competitive =
+    input.history.some((kind) => COMPETITIVE_KINDS.has(kind)) || input.state.rivalry > 0;
+  const collaborative =
+    input.history.some((kind) => COLLABORATIVE_KINDS.has(kind)) ||
+    input.state.creativeChemistry > 0;
+
+  /*
+   * Bandmates are the group's business and are assigned where a line-up is
+   * decided, not derived from interactions. Left exactly as it was found.
+   */
+  if (input.current === "BANDMATE") return "BANDMATE";
+
+  // No competition: M6's behaviour, unchanged. This is the overwhelming majority.
+  if (!competitive) return collaborative || input.history.length > 0 ? "CREATIVE_PARTNER" : "CONTACT";
+
+  // Competition and nothing else. Straightforwardly a rival.
+  if (!collaborative) return "RIVAL";
+
+  /*
+   * Both, which is the interesting case and the one a label cannot do justice to.
+   * Whichever is currently larger wins the *name*; both remain on the row, and a
+   * later record together flips it back without anything being lost.
+   */
+  return input.state.rivalry > input.state.creativeChemistry ? "RIVAL" : "CREATIVE_PARTNER";
 }

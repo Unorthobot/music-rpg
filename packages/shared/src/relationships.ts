@@ -1,3 +1,5 @@
+import { BATTLE_INTERACTION_KINDS } from "./battles";
+
 /**
  * Relationships.
  *
@@ -119,6 +121,8 @@ export const INTERACTION_KINDS = [
   "STOOD_GROUND",
   /** Did not answer. */
   "AVOIDED_THEM",
+  /* --- Competition. M8's, and the first things that move rivalry. --------- */
+  ...BATTLE_INTERACTION_KINDS,
 ] as const;
 export type InteractionKind = (typeof INTERACTION_KINDS)[number];
 
@@ -133,6 +137,14 @@ export type RelationshipInteraction = {
   stance?: string | null;
   /** For WORK_RECEIVED: how the record actually landed, 0–1. */
   receptionStrength?: number;
+  /**
+   * For the competitive kinds: how decisive the panel was, 0–1.
+   *
+   * Zero is a battle every judge disagreed about; one is a sweep. Carried on
+   * the interaction rather than recomputed by the fold, because it is a fact the
+   * judging already established and re-deriving it would be a second opinion.
+   */
+  contestMargin?: number;
 };
 
 /* --- What the player is told ---------------------------------------------- */
