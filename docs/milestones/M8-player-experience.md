@@ -163,20 +163,36 @@ Crowd work:         Exceptional     ✗
 Strategy tendency:  WIN_THE_CROWD   ✗
 ```
 
-That is the internal model in adjectives. Every insight must instead have a
-**believable source** — somebody who would know, saying something they would say:
+That is the internal model in adjectives. Every insight must instead be
+**attributed to the provenance the system actually owns**, translated into the
+player's language:
+
+| `ScoutingFinding.source` | Player-facing heading |
+|---|---|
+| `WORLD` | What you've heard |
+| `SCENE` | Around the scene |
+| `RELATIONSHIP` | What's already between you |
+| `BATTLE_HISTORY` | From previous battles |
 
 ```
-LEX
-Don't get dragged into trying to out-perform him. That's his room.
+Around the scene
+KGOSI carries a room in Braamfontein. People turn up for the night as
+much as for whoever's on it.
 
-What you've heard
-KGOSI gets crowds behind him early. People who've battled him say he
-leaves openings when things get technical.
+From previous battles
+He's been in rooms like this before and come out of them fine.
 
 What you don't know
 What he's actually preparing for you.
 ```
+
+**Decision: no named advisor in M8.** An insight attributed to a specific person
+— *"LEX: don't get dragged into trying to out-perform him"* — reads better and is
+not backed by anything. `scoutOpponent` takes no crew input, and the model has no
+concept of a crew member holding an opinion about a battle. A named advisor
+requires a real crew-advice and knowledge system, which is **out of scope for this
+milestone**. Every heading above corresponds to a `source` the headless model
+already sets; nothing here invents a voice the world does not have.
 
 **Requirement:** *What you don't know* is a first-class section, not a footnote,
 and maps to the real `unknowns` array the headless model already produces —
@@ -214,13 +230,17 @@ One consequence statement is appropriate and sufficient:
 
 > You can't change your approach once preparation starts.
 
-**On pronouns.** The copy above says *them* deliberately. The world states
-pronouns for two of the three rivals in biography prose and for KGOSI not at all,
-and there is no structured pronoun field anywhere in the codebase. **The interface
-must not infer an opponent's pronouns from their name.** Either template on the
-name ("Outwrite KGOSI") or use *them*. If per-opponent pronoun copy is wanted, the
-honest fix is an explicit field on `opponentSeeds`, and that is a content change
-rather than an interface one.
+**On pronouns.** The copy above says *them* deliberately, and that is the
+milestone's answer rather than a placeholder. The world states pronouns for two of
+the three rivals in biography prose and for KGOSI not at all, and there is no
+structured pronoun field anywhere in the codebase. **The interface must not infer
+an opponent's pronouns from their name.**
+
+**Decision: no pronoun field in M8.** Templating on the name ("Outwrite KGOSI") or
+using *them* covers every surface this milestone builds, and expanding the
+character schema to support gendered copy would be a content-model change made for
+a wording preference. Structured character pronouns are recorded as future
+content-model debt; they are not a prerequisite for anything here.
 
 ### 5. Prepare
 

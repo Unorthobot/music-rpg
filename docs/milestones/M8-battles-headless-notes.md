@@ -55,6 +55,34 @@ needs a career further along than one released single. **That belongs to later
 career progression rather than to M8 calibration**, and no coefficient should be
 moved to manufacture it.
 
+### Structured character pronouns
+
+The world states pronouns for SEKO and MADALA in biography prose and for KGOSI not
+at all, and no structured field exists on `characters`, `artists` or
+`opponentSeeds`. Player-facing copy therefore templates on the name or uses
+*them*, which is the M8 player-experience decision and covers every surface that
+milestone builds.
+
+**Deliberately not fixed here.** Expanding the content model to carry pronouns for
+the sake of gendered copy is a schema change made for a wording preference. If a
+later milestone wants per-character pronoun copy — or gives NPCs enough voice that
+it starts to matter — an explicit field on the seed is the honest fix, and it
+should arrive with that need rather than ahead of it.
+
+### Scouting has no person-attributed provenance
+
+`ScoutingFinding.source` is `WORLD | SCENE | RELATIONSHIP | BATTLE_HISTORY` — the
+four things the world actually knows. An insight attributed to a *named advisor*
+("LEX reckons you shouldn't try to out-perform him") reads considerably better and
+is backed by nothing: `scoutOpponent` takes no crew input, and no part of the model
+gives a crew member an opinion about a battle.
+
+**Deliberately not fixed here.** A named advisor requires a real crew-advice and
+knowledge system — who knows what, who is willing to say it, and how that changes
+with the relationship. That is its own milestone. Until then the four owned
+provenances translate into player language directly and claim nothing the world
+cannot support.
+
 ## Other debt
 
 - No player-facing battle interface. Out of scope by design; the player-facing
