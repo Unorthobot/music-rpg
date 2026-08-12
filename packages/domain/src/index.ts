@@ -21,6 +21,7 @@ export * from "./commands/relationships";
 export * from "./commands/crew";
 export * from "./commands/moments";
 export * from "./commands/opportunities";
+export * from "./commands/opportunity-messages";
 export * from "./commands/advance-day";
 
 export * from "./queries/career-view";
@@ -32,6 +33,9 @@ export * from "./queries/public-profile";
 export * from "./queries/reception";
 export * from "./queries/reception-view";
 export * from "./queries/opportunities";
+export * from "./queries/opportunity-view";
+export * from "./queries/career-story";
+export * from "./queries/notifications";
 export * from "./queries/relationships";
 export * from "./queries/relationship-view";
 
@@ -43,3 +47,10 @@ export {
 export { loadOwnedCareer, resolveDefaultWorld } from "./internal/career";
 export { createGameClock, DAYS, HOURS, type GameClock } from "./internal/clock";
 export { applyMoneyMovement, canAfford, type MoneyMovement } from "./internal/money";
+export {
+  bookProducerSession,
+  loadProducer,
+  producerProfileOfCharacter,
+  type BookedSession,
+  type BookSessionInput,
+} from "./internal/book-session";

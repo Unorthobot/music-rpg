@@ -13,11 +13,17 @@ export const metadata = { title: "Messages" };
  * A list on every viewport; opening a conversation is a route, so mobile gets a
  * full screen and desktop keeps its place in the shell. Player-to-player
  * messaging is a different system and does not appear here.
+ *
+ * Genuinely multi-conversation since M7. The schema always allowed it and the
+ * list has only ever had Thabo in it — now every promoter and producer who has
+ * something to ask has a thread of their own, which is what makes "somebody
+ * wants something from me" a thing the player reads rather than a thing the
+ * interface announces.
  */
 export default async function MessagesPage() {
   const { view } = await requireCareer();
   const db = await getAppDb();
-  const conversations = await getNPCConversations(db, view.career.id);
+  const conversations = await getNPCConversations(db, view.career);
 
   return (
     <AppShell
@@ -58,14 +64,23 @@ export default async function MessagesPage() {
                       </span>
                     ) : null}
                   </span>
-                  {entry.conversation.lastMessageAt ? (
-                    <time className="text-2xs uppercase tracking-label text-ink-subtle whitespace-nowrap">
-                      {new Date(entry.conversation.lastMessageAt).toLocaleDateString("en-ZA", {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </time>
-                  ) : null}
+
+                  <span className="flex flex-col items-end gap-1 shrink-0">
+                    {entry.conversation.lastMessageAt ? (
+                      <time className="text-2xs uppercase tracking-label text-ink-subtle whitespace-nowrap">
+                        {new Date(entry.conversation.lastMessageAt).toLocaleDateString("en-ZA", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </time>
+                    ) : null}
+                    {/*
+                      About the offer's state, not the message's. A thread you
+                      have read but not answered is still somebody waiting on
+                      you, and the marker goes when the offer is answered.
+                    */}
+                    {entry.offerWaiting ? <Tag tone="ember">Offer waiting</Tag> : null}
+                  </span>
                 </Surface>
               </Link>
             </li>

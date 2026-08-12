@@ -1,5 +1,5 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
-import { scenes, tracks } from "@music-rpg/database";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { characters, scenes, tracks } from "@music-rpg/database";
 import { gameEventLabels, listCareerEvents } from "@music-rpg/events";
 import Link from "next/link";
 import { EmptyState, Label, Surface, Tag, WorldEventCard } from "@music-rpg/ui";
@@ -31,6 +31,26 @@ export default async function WorldPage() {
   const db = await getAppDb();
 
   const worldScenes = await db.select().from(scenes).where(eq(scenes.worldId, view.world.id));
+
+  /*
+   * The people in this world who book rooms, by the scene they book in. Read
+   * from the world's own characters rather than from anything about this
+   * career — it is the same list whoever is looking.
+   */
+  const promoterRows = await db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.worldId, view.world.id), eq(characters.role, "PROMOTER")))
+    .orderBy(asc(characters.name));
+
+  const promotersBy = (sceneSlug: string): string[] =>
+    promoterRows
+      .filter(
+        (person) =>
+          (person.preferences as { promoter?: { sceneSlug?: string } } | null)?.promoter
+            ?.sceneSlug === sceneSlug,
+      )
+      .map((person) => person.name);
 
   /*
    * What the world can actually discover. A release that nobody can find is
@@ -134,6 +154,19 @@ export default async function WorldPage() {
                 ) : null}
               </div>
               <p className="text-sm text-ink-muted">{scene.description}</p>
+
+              {/*
+                Who books rooms here. World knowledge, not an offer surface:
+                these names are facts about the city, and nothing here is
+                actionable or says whether an offer from them is possible. A
+                "you're not ready for Sizwe yet" would be a locked door, and the
+                boundary forbids locked doors.
+              */}
+              {promotersBy(scene.slug).length > 0 ? (
+                <p className="text-xs text-ink-subtle border-t border-line-subtle pt-2 mt-1">
+                  Books rooms here: {promotersBy(scene.slug).join(", ")}
+                </p>
+              ) : null}
             </li>
           ))}
         </ul>

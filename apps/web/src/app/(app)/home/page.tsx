@@ -5,6 +5,7 @@ import {
   getCareerHome,
   getCareerPulse,
   getHomeReception,
+  getOfferStory,
 } from "@music-rpg/domain";
 import {
   AwaitingReception,
@@ -12,6 +13,9 @@ import {
   CareerMetric,
   Label,
   LinkButton,
+  OfferCard,
+  OfferGroupBlock,
+  OfferOutcomeNote,
   PulseMetric,
   ReceptionHeadline,
   Surface,
@@ -47,11 +51,12 @@ export default async function HomePage({
   const ctx = await createCommandContext();
 
   const db = await getAppDb();
-  const [counters, home, reception, pulse] = await Promise.all([
+  const [counters, home, reception, pulse, offerStory] = await Promise.all([
     getCareerCounters(db, view.career),
     getCareerHome(db, view.career),
     getHomeReception(db, view.career),
     getCareerPulse(db, view.career),
+    getOfferStory(db, view.career, 4),
   ]);
 
   await ctx.analytics.track({
@@ -240,6 +245,80 @@ export default async function HomePage({
         </Surface>
       </section>
 
+      {/*
+        On the table.
+
+        Contextual, not structural: Home *gains* this section when the career has
+        live offers and *loses* it when it does not. There is no empty state and
+        there must never be one — rendering an offers area with nothing in it
+        tells the player the world has a slot they have failed to fill, which is
+        the same violation as greying out a locked one. A career with nothing
+        waiting has a shorter Home, not an emptier one.
+
+        It sits beneath "Right now" because that is the single most pressing
+        thing and this is everything that is waiting.
+      */}
+      {home.onTheTable.count > 0 || home.onTheTable.recentlyEnded.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <Label>On the table</Label>
+            {/* Never "3 of 3". The cap is not player-facing. */}
+            {home.onTheTable.count > 0 ? (
+              <span className="text-2xs uppercase tracking-label text-ink-subtle">
+                {home.onTheTable.count} {home.onTheTable.count === 1 ? "offer" : "offers"}
+              </span>
+            ) : null}
+          </div>
+
+          <ul className="flex flex-col gap-3">
+            {home.onTheTable.groups.map((group) => (
+              <li key={group.offers[0]!.id}>
+                <OfferGroupBlock sharedNight={group.sharedNight}>
+                  {group.offers.map((offer) => (
+                    <OfferCard
+                      key={offer.id}
+                      offer={offer}
+                      action={
+                        <LinkButton href={offer.href} variant="secondary">
+                          Look at it
+                        </LinkButton>
+                      }
+                    />
+                  ))}
+                </OfferGroupBlock>
+              </li>
+            ))}
+
+            {/*
+              A night that stopped being possible, said where the offer was. It
+              is not removed silently — the player is told what happened and what
+              displaced it — and it leaves on its own once the date passes.
+            */}
+            {home.onTheTable.recentlyEnded.map((offer) => (
+              <li key={offer.id}>
+                <OfferOutcomeNote
+                  offer={offer}
+                  action={
+                    offer.displacedBy ? (
+                      <LinkButton
+                        href={`/opportunities/${offer.displacedBy.offerId}`}
+                        variant="secondary"
+                      >
+                        See what you took
+                      </LinkButton>
+                    ) : (
+                      <LinkButton href={offer.href} variant="secondary">
+                        See the offer
+                      </LinkButton>
+                    )
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="grid gap-3 grid-cols-2 lg:grid-cols-4">
         <CareerMetric
           label="Balance"
@@ -301,7 +380,40 @@ export default async function HomePage({
 
       <section className="flex flex-col gap-3">
         <Label>Your story</Label>
-        {home.story.length === 0 ? (
+
+        {/*
+          What became of what was offered, with the four endings kept distinct.
+          Above the general story because a decision the player made is more
+          theirs than an event that happened to them.
+        */}
+        {offerStory.length > 0 ? (
+          <ul className="flex flex-col gap-2">
+            {offerStory.map((entry) => (
+              <li key={entry.id}>
+                <Surface level={1} padded="sm" className="flex items-start justify-between gap-4">
+                  <span className="flex flex-col gap-1 min-w-0">
+                    <Label>{entry.eyebrow}</Label>
+                    {entry.href ? (
+                      <Link href={entry.href} className="text-base text-ink hover:text-ember">
+                        {entry.line}
+                      </Link>
+                    ) : (
+                      <span className="text-base text-ink">{entry.line}</span>
+                    )}
+                  </span>
+                  <time className="text-2xs uppercase tracking-label text-ink-subtle whitespace-nowrap">
+                    {new Date(entry.occurredAt).toLocaleDateString("en-ZA", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </time>
+                </Surface>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {home.story.length === 0 && offerStory.length === 0 ? (
           <Surface level={1} padded="lg">
             <p className="text-lg text-ink">Every career starts somewhere.</p>
             <p className="text-sm text-ink-muted mt-2">

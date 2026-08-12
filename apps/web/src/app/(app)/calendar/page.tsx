@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCareerCalendar } from "@music-rpg/domain";
+import { getCalendarOffers, getCareerCalendar } from "@music-rpg/domain";
 import { EmptyState, Label, Surface, Tag } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
@@ -18,7 +18,16 @@ export const metadata = { title: "Calendar" };
 export default async function CalendarPage() {
   const { user, view } = await requireCareer();
   const db = await getAppDb();
-  const calendar = await getCareerCalendar(db, view.career);
+  const [calendar, offers] = await Promise.all([
+    getCareerCalendar(db, view.career),
+    /*
+     * The offer behind each booking, so causality reads backwards: from a night
+     * on the calendar to the offer it came from, from there to the message, and
+     * from the message to the person. A calendar entry that cannot be traced
+     * back is a row with a title on it.
+     */
+    getCalendarOffers(db, view.career),
+  ]);
 
   const ctx = await createCommandContext();
   await ctx.analytics.track({
@@ -64,6 +73,8 @@ export default async function CalendarPage() {
           <ul className="flex flex-col gap-2">
             {calendar.upcoming.map((item) => {
               const isSession = item.relatedEntityType === "CREATIVE_SESSION";
+              const offer = offers.get(item.id) ?? null;
+
               const body = (
                 <Surface
                   level={1}
@@ -73,9 +84,18 @@ export default async function CalendarPage() {
                   <span className="flex flex-col gap-1 min-w-0">
                     <span className="flex items-center gap-2">
                       <Tag tone="ember">{item.type.toLowerCase()}</Tag>
-                      {item.status === "ACTIVE" ? <Tag>In progress</Tag> : null}
+                      {item.status === "ACTIVE" ? <Tag>In progress</Tag> : <Tag>Booked</Tag>}
                     </span>
                     <span className="text-base text-ink">{item.title}</span>
+                    {/*
+                      Who, what and where, from the offer this came from rather
+                      than parsed back out of the title.
+                    */}
+                    {offer ? (
+                      <span className="text-sm text-ink-muted">
+                        {[offer.source.name, offer.headline].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
                     {item.description ? (
                       <span className="text-sm text-ink-muted">{item.description}</span>
                     ) : null}
@@ -87,7 +107,7 @@ export default async function CalendarPage() {
               );
 
               return (
-                <li key={item.id}>
+                <li key={item.id} className="flex flex-col gap-1">
                   {isSession ? (
                     <Link href={`/studio/session/${item.relatedEntityId}`} className="block">
                       {body}
@@ -95,6 +115,15 @@ export default async function CalendarPage() {
                   ) : (
                     body
                   )}
+
+                  {offer ? (
+                    <Link
+                      href={`/opportunities/${offer.id}`}
+                      className="self-start text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+                    >
+                      The offer
+                    </Link>
+                  ) : null}
                 </li>
               );
             })}

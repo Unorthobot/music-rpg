@@ -9,6 +9,7 @@ import { migration0008M6Relationships } from "./0008_m6_relationships";
 import { migration0009M6Crew } from "./0009_m6_crew";
 import { migration0010M6Moments } from "./0010_m6_moments";
 import { migration0011M7Opportunities } from "./0011_m7_opportunities";
+import { migration0012M7PlayerExperience } from "./0012_m7_player_experience";
 
 export type Migration = { id: string; sql: string };
 
@@ -25,4 +26,5 @@ export const migrations: Migration[] = [
   migration0009M6Crew,
   migration0010M6Moments,
   migration0011M7Opportunities,
+  migration0012M7PlayerExperience,
 ];

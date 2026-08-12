@@ -1,8 +1,7 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import {
   calendarItems,
   characters,
-  creativeSessionParticipants,
   creativeSessions,
   npcConversations,
   npcMessages,
@@ -16,9 +15,9 @@ import { err, formatMoney, ids, ok, type Result } from "@music-rpg/shared";
 import type { ProducerProfile } from "@music-rpg/simulation";
 import { contextNow, track, type CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
+import { bookProducerSession } from "../internal/book-session";
 import { loadOwnedCareer } from "../internal/career";
 import { DAYS } from "../internal/clock";
-import { applyMoneyMovement } from "../internal/money";
 
 export type SelectProducerResult = {
   producer: CharacterRow;
@@ -90,12 +89,21 @@ export async function selectProducer(
     return err(DomainErrors.invalidCareerState("You haven't been introduced to anyone yet."));
   }
 
-  // Already chosen: hand back the session that exists rather than booking again.
+  /*
+   * Already chosen: hand back the session that exists rather than booking again.
+   *
+   * Ordered oldest-first, which was academic until M7 and is not any more. A
+   * career can now book a second session by accepting a producer's invitation,
+   * so an unordered `limit(1)` here would sometimes hand back the wrong room —
+   * the introduction resolves to the session the introduction created, and that
+   * is always the first one.
+   */
   if (opportunity.status === "RESOLVED") {
     const existing = await ctx.db
       .select()
       .from(creativeSessions)
       .where(eq(creativeSessions.careerId, career.id))
+      .orderBy(asc(creativeSessions.createdAt))
       .limit(1);
 
     const session = existing[0];
@@ -141,82 +149,26 @@ export async function selectProducer(
   const sessionGameTime = new Date(career.currentGameDate.getTime() + 1 * DAYS);
 
   const outcome = await ctx.db.transaction(async (tx) => {
-    const money = await applyMoneyMovement(tx, {
-      careerId: career.id,
-      category: "STUDIO_COST",
-      amountMinor: costMinor,
-      direction: "DEBIT",
-      description: `Studio session with ${producer.name}`,
-      relatedEntityType: "CHARACTER",
-      relatedEntityId: producer.id,
+    /*
+     * The room itself, booked through the one implementation of booking a room.
+     * What is left here is only what makes this booking an *introduction* being
+     * answered rather than an invitation being accepted.
+     */
+    const booked = await bookProducerSession(tx, {
+      career,
+      producer,
+      profile,
+      costMinor,
+      scheduledGameTime: sessionGameTime,
+      now,
       // One key per career per producer: a replayed submit is a no-op.
       idempotencyKey: `career:${career.id}:producer_session:${producer.id}`,
-      occurredAt: now,
+      title: `Studio session with ${producer.name}`,
     });
 
-    if (!money.ok) return { failed: "INSUFFICIENT_FUNDS" as const };
+    if ("failed" in booked) return booked;
 
-    const sessionId = ids.generic();
-
-    const insertedSession = await tx
-      .insert(creativeSessions)
-      .values({
-        id: sessionId,
-        careerId: career.id,
-        worldId: career.worldId,
-        purpose: "TRACK",
-        status: "SCHEDULED",
-        costMinor,
-        transactionId: money.transactionId,
-        scheduledGameTime: sessionGameTime,
-      })
-      .returning();
-
-    const session = insertedSession[0];
-    if (!session) return { failed: "SESSION" as const };
-
-    // Who is in the room. A group career seats the Group and the player's own
-    // artist, so the work is attributable to both.
-    const participants: { entityType: "ARTIST" | "GROUP" | "CHARACTER"; entityId: string; role: "PRIMARY_ARTIST" | "GROUP" | "PRODUCER" }[] =
-      [{ entityType: "CHARACTER", entityId: producer.id, role: "PRODUCER" }];
-
-    if (career.controlledEntityType === "GROUP" && career.controlledEntityId) {
-      participants.push({ entityType: "GROUP", entityId: career.controlledEntityId, role: "GROUP" });
-    }
-    if (career.playerArtistId) {
-      participants.push({
-        entityType: "ARTIST",
-        entityId: career.playerArtistId,
-        role: "PRIMARY_ARTIST",
-      });
-    }
-
-    for (const participant of participants) {
-      await tx
-        .insert(creativeSessionParticipants)
-        .values({ id: ids.generic(), sessionId: session.id, ...participant })
-        .onConflictDoNothing();
-    }
-
-    const calendarId = ids.generic();
-    const insertedItem = await tx
-      .insert(calendarItems)
-      .values({
-        id: calendarId,
-        careerId: career.id,
-        type: "STUDIO",
-        title: `Studio session with ${producer.name}`,
-        description: profile.soundLine,
-        startGameTime: sessionGameTime,
-        endGameTime: new Date(sessionGameTime.getTime() + 4 * 60 * 60 * 1000),
-        relatedEntityType: "CREATIVE_SESSION",
-        relatedEntityId: session.id,
-        status: "SCHEDULED",
-      })
-      .returning();
-
-    const calendarItem = insertedItem[0];
-    if (!calendarItem) return { failed: "CALENDAR" as const };
+    const { session, calendarItem } = booked;
 
     await tx
       .update(opportunities)
@@ -245,26 +197,12 @@ export async function selectProducer(
       payload: { producerId: producer.id, producerName: producer.name },
     });
 
-    await recordEvent(tx, {
-      worldId: career.worldId,
-      careerId: career.id,
-      eventType: GameEventType.TransactionRecorded,
-      actorType: "CAREER",
-      actorId: career.id,
-      targetType: "TRANSACTION",
-      targetId: money.transactionId,
-      visibility: "PRIVATE",
-      importance: 40,
-      occurredAt: career.currentGameDate,
-      idempotencyKey: `transaction:${money.transactionId}:recorded`,
-      payload: {
-        category: "STUDIO_COST",
-        amountMinor: costMinor,
-        balanceAfterMinor: money.balanceAfterMinor,
-        description: `Studio session with ${producer.name}`,
-      },
-    });
-
+    /*
+     * The ledger, session and calendar events are the booking's own and are
+     * written by `bookProducerSession`. What stays here is the one event that is
+     * about this being a *choice between three people* rather than a room being
+     * booked.
+     */
     await recordEvent(tx, {
       worldId: career.worldId,
       careerId: career.id,
@@ -280,44 +218,23 @@ export async function selectProducer(
       payload: { producerName: producer.name, costMinor, sessionId: session.id },
     });
 
-    await recordEvent(tx, {
-      worldId: career.worldId,
-      careerId: career.id,
-      eventType: GameEventType.CreativeSessionCreated,
-      actorType: "CAREER",
-      actorId: career.id,
-      targetType: "CREATIVE_SESSION",
-      targetId: session.id,
-      visibility: "PRIVATE",
-      importance: 60,
-      occurredAt: career.currentGameDate,
-      idempotencyKey: `session:${session.id}:created`,
-      payload: { producerId: producer.id, purpose: "TRACK", costMinor },
-    });
-
-    await recordEvent(tx, {
-      worldId: career.worldId,
-      careerId: career.id,
-      eventType: GameEventType.CalendarItemCreated,
-      actorType: "CAREER",
-      actorId: career.id,
-      targetType: "CALENDAR_ITEM",
-      targetId: calendarItem.id,
-      visibility: "PRIVATE",
-      importance: 35,
-      occurredAt: career.currentGameDate,
-      idempotencyKey: `calendar:${calendarItem.id}:created`,
-      payload: { type: "STUDIO", startGameTime: sessionGameTime.toISOString() },
-    });
-
-    // Thabo hears about it. The scene is small.
+    /*
+     * Thabo hears about it. The scene is small.
+     *
+     * Scoped to Thabo by name, which it was not before and had to become: until
+     * M7 he was the only person a career had a conversation with, so "the first
+     * conversation" and "Thabo" were the same row. Promoters and producers now
+     * have threads of their own, and an unscoped lookup would put the
+     * connector's line into whichever conversation happened to come back first.
+     */
     const conversationRows = await tx
-      .select()
+      .select({ conversation: npcConversations })
       .from(npcConversations)
-      .where(eq(npcConversations.careerId, career.id))
+      .innerJoin(characters, eq(characters.id, npcConversations.characterId))
+      .where(and(eq(npcConversations.careerId, career.id), eq(characters.slug, "thabo")))
       .limit(1);
 
-    const conversation = conversationRows[0];
+    const conversation = conversationRows[0]?.conversation;
     if (conversation) {
       await tx.insert(npcMessages).values({
         id: ids.generic(),
@@ -332,12 +249,7 @@ export async function selectProducer(
         .where(eq(npcConversations.id, conversation.id));
     }
 
-    return {
-      session,
-      calendarItem,
-      transactionId: money.transactionId,
-      alreadyCharged: money.alreadyApplied,
-    };
+    return booked;
   });
 
   if ("failed" in outcome) {

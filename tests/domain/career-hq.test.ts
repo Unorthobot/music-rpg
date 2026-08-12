@@ -111,7 +111,7 @@ describe("career HQ", () => {
     expect(second.created).toBe(false);
     expect(third.opportunity.id).toBe(first.opportunity.id);
 
-    const conversations = await getNPCConversations(test.handle.db, careerId);
+    const conversations = await getNPCConversations(test.handle.db, (await currentCareer(test, careerId))!);
     expect(conversations).toHaveLength(1);
     expect(conversations[0]!.character.slug).toBe("thabo");
     expect(conversations[0]!.unread).toBe(2);
@@ -129,7 +129,7 @@ describe("career HQ", () => {
   });
 
   it("links the message to the opportunity it is about", async () => {
-    const conversations = await getNPCConversations(test.handle.db, careerId);
+    const conversations = await getNPCConversations(test.handle.db, (await currentCareer(test, careerId))!);
     const messages = await test.handle.db
       .select()
       .from(npcMessages)

@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { formatCount, formatMoney } from "@music-rpg/shared";
 import { describeStat, soundAxisWords, topSkills } from "@music-rpg/simulation";
 import { SOUND_DIMENSIONS } from "@music-rpg/shared";
-import { getCareerPulse } from "@music-rpg/domain";
+import { getCareerPulse, getOfferStory } from "@music-rpg/domain";
 import { CareerMetric, Label, PulseMetric, StatDescriptor, Surface, Tag } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
@@ -23,7 +24,10 @@ export default async function CareerPage() {
   const sound = entity?.sound ?? null;
 
   const db = await getAppDb();
-  const pulse = await getCareerPulse(db, view.career);
+  const [pulse, story] = await Promise.all([
+    getCareerPulse(db, view.career),
+    getOfferStory(db, view.career),
+  ]);
 
   const levelOf = (key: "FAME" | "RESPECT" | "HEAT" | "LEGACY"): string =>
     pulse.metrics.find((metric) => metric.key === key)?.level ?? "";
@@ -141,6 +145,45 @@ export default async function CareerPage() {
           </div>
         </Surface>
       </section>
+
+      {/*
+        What became history.
+
+        The four endings stay four: taken, turned down, lapsed, and lost to a
+        clash. A year of a career should read like a year, and most of what makes
+        it one is the difference between a night you refused and a night that
+        stopped waiting for you. Nothing here is narrated beyond what the world
+        recorded.
+      */}
+      {story.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <Label>Your story</Label>
+          <ul className="flex flex-col gap-2">
+            {story.map((entry) => (
+              <li key={entry.id}>
+                <Surface level={1} padded="sm" className="flex items-start justify-between gap-4">
+                  <span className="flex flex-col gap-1 min-w-0">
+                    <Label>{entry.eyebrow}</Label>
+                    {entry.href ? (
+                      <Link href={entry.href} className="text-base text-ink hover:text-ember">
+                        {entry.line}
+                      </Link>
+                    ) : (
+                      <span className="text-base text-ink">{entry.line}</span>
+                    )}
+                  </span>
+                  <time className="text-2xs uppercase tracking-label text-ink-subtle whitespace-nowrap">
+                    {new Date(entry.occurredAt).toLocaleDateString("en-ZA", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </time>
+                </Surface>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-3">
         <Label>Balance</Label>

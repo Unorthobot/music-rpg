@@ -104,3 +104,64 @@ export async function releaseTrack(page: Page, title: string): Promise<string> {
   return publicHref!;
 }
 
+
+/**
+ * A session with real friction in it: refuse the set, then take a second pass.
+ *
+ * The clean path takes the producer's first read and ships it, which is a career
+ * in which nobody ever disagreed about anything. Suites that need the world to
+ * *have an opinion* afterwards — a relationship with something unresolved in it,
+ * a producer with a reason to want another session — need a session with shape
+ * to it. Every step goes through the real interface, so what is left behind is
+ * exactly what a player doing the same thing would leave behind.
+ */
+export async function makeTrackWithFriction(page: Page, title: string): Promise<void> {
+  await page.getByRole("link", { name: "Read it" }).click();
+  await page.getByRole("link", { name: "See the producers" }).click();
+  await page.getByRole("button", { name: /Book a session with/ }).first().click();
+  await page.waitForURL("**/studio");
+
+  await page.getByRole("button", { name: "Start the session" }).click();
+  await page.waitForURL("**/studio/session/**");
+
+  await page.getByRole("button", { name: /Tell a story/ }).click();
+  await page.getByRole("button", { name: "Tense", exact: true }).click();
+  await page.getByRole("button", { name: /^Tell (LEX|MO|ZERO)$/ }).click();
+
+  await page.getByText(/came back with three\./).waitFor({ timeout: 30_000 });
+
+  /*
+   * Turn the whole set down. The second pass has copy of its own, and waiting
+   * on *that* is what makes this a real wait — the round-zero line is still on
+   * screen while the redirect is in flight, so matching it would let the next
+   * click land on a page that is about to be replaced.
+   */
+  await page.getByRole("button", { name: "None of these — try again" }).click();
+  await page
+    .getByText(/went away and came back with three more/)
+    .waitFor({ timeout: 30_000 });
+
+  await page.getByRole("button", { name: "Make this one" }).first().click();
+  await page.getByRole("button", { name: "Master this" }).waitFor({ timeout: 60_000 });
+
+  // Take it, then send it back anyway. Refusing a set and reworking the result
+  // is what produces a relationship with something unresolved in it.
+  await page.getByRole("button", { name: "Keep working" }).click();
+  await page.getByRole("button", { name: "Send it back" }).click();
+
+  /*
+   * Wait for the revision form to go, not for "Master this" to appear — that
+   * button was already on screen before the revision was asked for, so
+   * matching it would let the next click land on the pre-revision page.
+   */
+  await expect(page.getByRole("button", { name: "Send it back" })).toHaveCount(0, {
+    timeout: 60_000,
+  });
+
+  await page.getByRole("button", { name: "Master this" }).click({ timeout: 60_000 });
+  await page.getByText("Mastered — name it and keep it").waitFor({ timeout: 60_000 });
+
+  await page.getByLabel("Track title").fill(title);
+  await page.getByRole("button", { name: "Save to catalogue" }).click();
+  await page.waitForURL("**/home");
+}

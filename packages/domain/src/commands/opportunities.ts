@@ -15,14 +15,16 @@ import {
   scenes,
   tracks,
   type CareerRow,
+  type CharacterRow,
   type OpportunityRow,
 } from "@music-rpg/database";
 import { GameEventType, recordEvent } from "@music-rpg/events";
-import { direct } from "@music-rpg/simulation";
+import { direct, type ProducerProfile } from "@music-rpg/simulation";
 import {
   OPPORTUNITY_DIRECTOR_VERSION,
   RELATIONSHIP_DIMENSIONS,
   err,
+  formatMoney,
   ids,
   ok,
   type CandidateAssessment,
@@ -39,7 +41,13 @@ import {
 } from "@music-rpg/shared";
 import { contextNow, track as trackAnalytics, type CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
+import {
+  bookProducerSession,
+  loadProducer,
+  producerProfileOfCharacter,
+} from "../internal/book-session";
 import { loadOwnedCareer } from "../internal/career";
+import { DAYS } from "../internal/clock";
 
 /**
  * The Opportunity Director, wired into the world.
@@ -698,6 +706,8 @@ export type AcceptOpportunityResult = {
   opportunity: OpportunityRow;
   /** The booking it produced, where the offer was one. */
   calendarItemId: string | null;
+  /** The studio session it produced, where the offer was an invitation. */
+  sessionId: string | null;
   /** Offers this made impossible, resolved for that stated reason. */
   withdrawn: OpportunityRow[];
 };
@@ -705,13 +715,22 @@ export type AcceptOpportunityResult = {
 /**
  * Take an offer.
  *
- * What this writes: the opportunity's own state, the calendar item the offer
- * actually is, the canonical events, and the withdrawal of anything it made
- * impossible. What this deliberately does not write: Fame, Respect, Heat, a
- * relationship dimension, or any other downstream number. A showcase that goes
- * well should move Heat and scene Respect through reception's existing pressure
- * model when it is performed — not through a mission-shaped reward handed out at
- * the moment of saying yes.
+ * What this writes: the opportunity's own state, the commitment the offer
+ * actually is — a night on the calendar, or a booked session in the studio — the
+ * canonical events, and the withdrawal of anything it made impossible. What this
+ * deliberately does not write: Fame, Respect, Heat, a relationship dimension, or
+ * any other downstream number. A showcase that goes well should move Heat and
+ * scene Respect through reception's existing pressure model when it is performed
+ * — not through a mission-shaped reward handed out at the moment of saying yes.
+ *
+ * **A session invitation books a real session.** Accepting one goes through the
+ * same `bookProducerSession` the producer introduction uses: the fee is charged
+ * through the ledger, the `creative_session` is created, the producer and the
+ * player are seated, and the room is on the calendar. It is the milestone's most
+ * consequential line, because booking a session has been gated on the one-time
+ * introduction since M3 — which quietly made the whole game a beautifully
+ * simulated *first* record. A career can now keep making things, and it gets
+ * there because somebody who rated the last one asked for another.
  */
 export async function acceptOpportunity(
   ctx: CommandContext,
@@ -731,9 +750,15 @@ export async function acceptOpportunity(
   if (!opportunity || opportunity.careerId !== career.id) {
     return err(DomainErrors.invalidInput("That offer doesn't exist."));
   }
-  if (opportunity.status === "ACCEPTED") {
+  if (opportunity.status === "ACCEPTED" || opportunity.status === "RESOLVED") {
     // Already taken: hand back what exists rather than booking twice.
-    return ok({ opportunity, calendarItemId: null, withdrawn: [] });
+    const settled = opportunity.payload as { sessionId?: string };
+    return ok({
+      opportunity,
+      calendarItemId: null,
+      sessionId: settled.sessionId ?? null,
+      withdrawn: [],
+    });
   }
   if (opportunity.status !== "AVAILABLE") {
     return err(
@@ -752,7 +777,45 @@ export async function acceptOpportunity(
     promoterName?: string;
     sceneName?: string;
     termsLine?: string;
+    producerName?: string;
+    sessionCostMinor?: number;
+    proposedGameTime?: string;
   };
+
+  /*
+   * An invitation the career cannot pay for is refused before anything is
+   * written, and refused in the offer's own terms rather than as a generic
+   * failure. Hiding an unaffordable offer would be the dishonest alternative:
+   * the world thinking you are worth another record is a real fact about the
+   * career, and it stays true whether or not the balance covers it.
+   */
+  let producer: CharacterRow | null = null;
+  let producerProfile: ProducerProfile | null = null;
+
+  if (opportunity.type === "SESSION_INVITE") {
+    if (!opportunity.sourceEntityId) {
+      return err(DomainErrors.invalidCareerState("Nobody is offering that session."));
+    }
+
+    producer = await loadProducer(ctx.db, career.worldId, opportunity.sourceEntityId);
+    producerProfile = producer ? producerProfileOfCharacter(producer) : null;
+
+    if (!producer || !producerProfile) {
+      return err(DomainErrors.invalidCareerState("They aren't taking sessions."));
+    }
+
+    const costMinor = payload.sessionCostMinor ?? producerProfile.sessionCostMinor;
+
+    if (career.moneyBalance < costMinor) {
+      return err(
+        DomainErrors.invalidInput(
+          `A session with ${producer.name} costs ${formatMoney(costMinor)}. You have ${formatMoney(
+            career.moneyBalance,
+          )}.`,
+        ),
+      );
+    }
+  }
 
   const applied = await ctx.db.transaction(async (tx) => {
     const updated = await tx
@@ -803,6 +866,54 @@ export async function acceptOpportunity(
       });
     }
 
+    /*
+     * An invitation becomes an actual session, through M3's path rather than
+     * beside it. The room, the fee, the seats and the calendar entry are all
+     * `bookProducerSession`'s — the same function the producer introduction
+     * calls — so there is exactly one kind of studio session in this game and it
+     * is resumable however it was booked.
+     */
+    let sessionId: string | null = null;
+
+    if (opportunity.type === "SESSION_INVITE" && producer && producerProfile) {
+      const costMinor = payload.sessionCostMinor ?? producerProfile.sessionCostMinor;
+      const scheduled = payload.proposedGameTime
+        ? new Date(payload.proposedGameTime)
+        : new Date(career.currentGameDate.getTime() + 1 * DAYS);
+
+      const booked = await bookProducerSession(tx, {
+        career,
+        producer,
+        profile: producerProfile,
+        costMinor,
+        scheduledGameTime: scheduled,
+        now,
+        // Keyed to the offer, not the producer: going back in with the same
+        // person is a second booking, and must charge a second time.
+        idempotencyKey: `opportunity:${opportunity.id}:session`,
+        title: `Studio session with ${producer.name}`,
+      });
+
+      if ("failed" in booked) return { failed: booked.failed } as const;
+
+      sessionId = booked.session.id;
+      calendarItemId = booked.calendarItem.id;
+
+      /*
+       * The session recorded on the offer, so every surface can walk from the
+       * offer to the room it became — and so the calendar entry, which points at
+       * the session, can be traced back to the night it was asked for.
+       */
+      await tx
+        .update(opportunities)
+        .set({
+          payload: { ...opportunity.payload, sessionId },
+          resolvedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(opportunities.id, opportunity.id));
+    }
+
     await recordEvent(tx, {
       worldId: career.worldId,
       careerId: career.id,
@@ -819,7 +930,12 @@ export async function acceptOpportunity(
         type: opportunity.type,
         origin: opportunity.origin,
         sourceEntityId: opportunity.sourceEntityId,
+        sourceName: producer?.name ?? payload.promoterName ?? null,
+        nightName: payload.nightName ?? null,
+        sceneName: payload.sceneName ?? null,
+        billing: (opportunity.payload as { billing?: string }).billing ?? null,
         calendarItemId,
+        sessionId,
       },
     });
 
@@ -834,11 +950,23 @@ export async function acceptOpportunity(
       now,
     });
 
-    return { opportunity: updated[0], calendarItemId, withdrawn };
+    return { opportunity: updated[0], calendarItemId, sessionId, withdrawn };
   });
 
   if (!applied) {
     return err(DomainErrors.invalidCareerState("That offer isn't yours to take any more."));
+  }
+
+  if ("failed" in applied) {
+    // Nothing was written, so nothing was charged, and saying so is the honest
+    // half of refusing.
+    return err(
+      applied.failed === "INSUFFICIENT_FUNDS"
+        ? DomainErrors.invalidInput("You can't afford that session.")
+        : DomainErrors.invalidInput(
+            "We couldn't book the session. You haven't been charged.",
+          ),
+    );
   }
 
   await trackAnalytics(ctx, {
@@ -849,6 +977,7 @@ export async function acceptOpportunity(
       type: opportunity.type,
       origin: opportunity.origin,
       withdrew: applied.withdrawn.length,
+      bookedSession: applied.sessionId !== null,
     },
   });
 

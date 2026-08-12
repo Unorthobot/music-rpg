@@ -12,3 +12,4 @@ export * from "./releases";
 export * from "./result";
 export * from "./slug";
 export * from "./studio";
+export * from "./opportunity-view";

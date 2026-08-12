@@ -6,3 +6,4 @@ export * from "./components/cards";
 export * from "./components/choice";
 export * from "./components/mini-player";
 export * from "./components/reception";
+export * from "./components/offers";

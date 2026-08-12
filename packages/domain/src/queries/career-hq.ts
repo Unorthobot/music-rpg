@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import {
   calendarItems,
   characters,
@@ -18,7 +18,9 @@ import {
   type TransactionRow,
 } from "@music-rpg/database";
 import { gameEventLabels } from "@music-rpg/events";
+import type { OfferTable, PlayerOffer } from "@music-rpg/shared";
 import type { CareerRow } from "@music-rpg/database";
+import { getOffersForCharacter, getOfferTable } from "./opportunity-view";
 
 /**
  * Career HQ read models.
@@ -36,6 +38,10 @@ export type RightNow = {
     | "SESSION_READY"
     | "SESSION_IN_PROGRESS"
     | "TRACK_COMPLETE"
+    /** Somebody wrote about an offer and the player has not read it. */
+    | "OFFER_MESSAGE"
+    /** Nothing unread, but something is waiting on an answer. */
+    | "OFFER_WAITING"
     /** Out, and the world is deciding. */
     | "AWAITING_RECEPTION"
     | "NOTHING";
@@ -70,6 +76,16 @@ export type CareerHome = {
   nextCalendarItem: CalendarItemRow | null;
   activeSession: CreativeSessionRow | null;
   opportunity: OpportunityRow | null;
+  /**
+   * Everything currently being asked of this career.
+   *
+   * Empty when the world is not asking for anything, and Home renders *nothing*
+   * in that case — not an empty section, not a placeholder, not "no offers".
+   * A career with nothing waiting has a shorter Home, not an emptier one, and
+   * rendering a container for something that was never offered tells the player
+   * the world has a slot they have failed to fill.
+   */
+  onTheTable: OfferTable;
 };
 
 async function countOf(query: Promise<{ value: number }[]>): Promise<number> {
@@ -145,6 +161,14 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
       .where(and(eq(tracks.careerId, career.id), isNotNull(tracks.releasedAt))),
   );
 
+  /*
+   * The live set, through the player-facing projection rather than from the
+   * rows. Home has no more access to the director's reasoning than any other
+   * screen — it is simply the screen that shows the most of what a player is
+   * allowed to know.
+   */
+  const onTheTable = await getOfferTable(db, career);
+
   const rightNow = resolveRightNow({
     hasConversation: conversationRows.length > 0,
     unreadMessages,
@@ -154,6 +178,8 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
     releasedTracks,
     conversationId: conversationRows[0]?.conversation.id ?? null,
     producerName: conversationRows[0]?.character.name ?? "someone",
+    onTheTable,
+    unreadOfferMessage: await findUnreadOfferMessage(db, onTheTable),
   });
 
   return {
@@ -169,7 +195,55 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
     nextCalendarItem,
     activeSession,
     opportunity,
+    onTheTable,
   };
+}
+
+/**
+ * An offer somebody has written about and the player has not read.
+ *
+ * "Right now" points at the message rather than the offer in that case, because
+ * the fiction is that a person got in touch — and reading what they said is the
+ * step before deciding. Once it has been read, the offer itself becomes the
+ * pressing thing.
+ */
+async function findUnreadOfferMessage(
+  db: Database,
+  table: OfferTable,
+): Promise<{ conversationId: string; who: string; offer: PlayerOffer } | null> {
+  if (table.offers.length === 0) return null;
+
+  const conversationIds = table.offers
+    .map((offer) => offer.source.conversationId)
+    .filter((id): id is string => id !== null);
+
+  if (conversationIds.length === 0) return null;
+
+  const unread = await db
+    .select({ conversationId: npcMessages.conversationId, payload: npcMessages.payload })
+    .from(npcMessages)
+    .where(
+      and(
+        inArray(npcMessages.conversationId, conversationIds),
+        isNull(npcMessages.readAt),
+        ne(npcMessages.senderType, "PLAYER"),
+      ),
+    )
+    .orderBy(desc(npcMessages.createdAt));
+
+  for (const message of unread) {
+    const offerId = (message.payload as { opportunityId?: string }).opportunityId;
+    const offer = table.offers.find((entry) => entry.id === offerId);
+    if (offer && offer.source.conversationId) {
+      return {
+        conversationId: offer.source.conversationId,
+        who: offer.source.name,
+        offer,
+      };
+    }
+  }
+
+  return null;
 }
 
 function resolveRightNow(input: {
@@ -181,6 +255,8 @@ function resolveRightNow(input: {
   releasedTracks: number;
   conversationId: string | null;
   producerName: string;
+  onTheTable: OfferTable;
+  unreadOfferMessage: { conversationId: string; who: string; offer: PlayerOffer } | null;
 }): RightNow {
   // Order matters: this is a priority list, not a set of cards.
   if (input.activeSession && input.activeSession.status !== "SCHEDULED") {
@@ -219,6 +295,52 @@ function resolveRightNow(input: {
       detail: "Pick the one you'd actually want in the room.",
       href: "/opportunities/producers",
       cta: "See who's available",
+    };
+  }
+
+  /*
+   * Somebody got in touch and the player has not read it.
+   *
+   * Above the release and beneath an active session, which is the honest
+   * ordering: a room you are already standing in outranks a message, and a
+   * message from a person outranks a number that will still be there tomorrow.
+   * The unread one comes first because the fiction is that somebody wrote to
+   * you — the offer is what the message is *about*.
+   */
+  if (input.unreadOfferMessage) {
+    const { who, offer, conversationId } = input.unreadOfferMessage;
+
+    return {
+      kind: "OFFER_MESSAGE",
+      title: `${who} sent you a message.`,
+      detail:
+        offer.night?.sceneName != null
+          ? `Somebody in ${offer.night.sceneName} wants you on a bill.`
+          : `${who} wants to make something with you again.`,
+      href: `/messages/${conversationId}`,
+      cta: "Read it",
+    };
+  }
+
+  /*
+   * Read, and still waiting on an answer. The one with the least time left
+   * leads, because a support slot with three days on it must not be missable —
+   * and "soonest to answer" is a fact about the offer rather than a ranking the
+   * player is being shown.
+   */
+  const answerable = input.onTheTable.offers
+    .filter((offer) => offer.answerBy !== null)
+    .sort((first, second) => first.answerBy!.getTime() - second.answerBy!.getTime());
+
+  const pressing = answerable[0] ?? input.onTheTable.offers[0];
+
+  if (pressing) {
+    return {
+      kind: "OFFER_WAITING",
+      title: `${pressing.source.name} is waiting on an answer.`,
+      detail: [pressing.headline, pressing.answerByLabel].filter(Boolean).join(" · "),
+      href: pressing.href,
+      cta: "Look at it",
     };
   }
 
@@ -330,12 +452,23 @@ export type ConversationSummary = {
   character: CharacterRow;
   lastMessage: NpcMessageRow | null;
   unread: number;
+  /**
+   * An offer from this person that is still the player's to answer.
+   *
+   * What drives the "offer waiting" marker in the list. It disappears once the
+   * offer has been answered because the marker is about *the offer's* state, not
+   * about whether the message has been read — a thread you have read but not
+   * replied to is still somebody waiting on you.
+   */
+  offerWaiting: PlayerOffer | null;
 };
 
 export async function getNPCConversations(
   db: Database,
-  careerId: string,
+  career: CareerRow,
 ): Promise<ConversationSummary[]> {
+  const careerId = career.id;
+
   const rows = await db
     .select({ conversation: npcConversations, character: characters })
     .from(npcConversations)
@@ -343,6 +476,9 @@ export async function getNPCConversations(
     .where(eq(npcConversations.careerId, careerId))
     .orderBy(desc(npcConversations.lastMessageAt));
 
+  // The same projection every other surface reads. The list does not get its own
+  // idea of what is on offer.
+  const live = await getOfferTable(db, career);
   const summaries: ConversationSummary[] = [];
 
   for (const row of rows) {
@@ -374,6 +510,8 @@ export async function getNPCConversations(
       character: row.character,
       lastMessage: messages[0] ?? null,
       unread,
+      offerWaiting:
+        live.offers.find((offer) => offer.source.characterId === row.character.id) ?? null,
     });
   }
 
@@ -383,14 +521,26 @@ export async function getNPCConversations(
 export type ConversationView = {
   character: CharacterRow;
   messages: NpcMessageRow[];
+  /** The authored producer introduction, when this thread is Thabo's. */
   opportunity: OpportunityRow | null;
+  /**
+   * Every offer this person has made, whatever became of it.
+   *
+   * The thread renders these as cards from the shared projection rather than
+   * restating the terms in prose, which is what keeps the date in Messages and
+   * the date on the offer screen the same date rather than two formattings of
+   * two readings.
+   */
+  offers: PlayerOffer[];
 };
 
 export async function getNPCConversation(
   db: Database,
-  careerId: string,
+  career: CareerRow,
   conversationId: string,
 ): Promise<ConversationView | null> {
+  const careerId = career.id;
+
   const rows = await db
     .select({ conversation: npcConversations, character: characters })
     .from(npcConversations)
@@ -403,21 +553,39 @@ export async function getNPCConversation(
   const row = rows[0];
   if (!row) return null;
 
-  const [messages, opportunityRows] = await Promise.all([
+  const [messages, introRows, offers] = await Promise.all([
     db
       .select()
       .from(npcMessages)
       .where(eq(npcMessages.conversationId, conversationId))
       .orderBy(asc(npcMessages.createdAt)),
+    /*
+     * Scoped to the authored introduction and to this person. It used to be
+     * "the newest opportunity of any type for this career", which was correct
+     * while Thabo was the only correspondent and became wrong the moment a
+     * promoter could write to you — Naledi's thread would have offered the
+     * producer screen.
+     */
     db
       .select()
       .from(opportunities)
-      .where(eq(opportunities.careerId, careerId))
-      .orderBy(desc(opportunities.createdAt))
+      .where(
+        and(
+          eq(opportunities.careerId, careerId),
+          eq(opportunities.type, "PRODUCER_INTRO"),
+          eq(opportunities.sourceEntityId, row.character.id),
+        ),
+      )
       .limit(1),
+    getOffersForCharacter(db, career, row.character.id),
   ]);
 
-  return { character: row.character, messages, opportunity: opportunityRows[0] ?? null };
+  return {
+    character: row.character,
+    messages,
+    opportunity: introRows[0] ?? null,
+    offers,
+  };
 }
 
 /* --- Calendar ------------------------------------------------------------ */

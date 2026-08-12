@@ -92,6 +92,18 @@ export const npcMessages = pgTable(
     /** The canonical event this message reports, when it reports one. */
     sourceEventId: text("source_event_id"),
     payload: jsonb("payload").$type<Record<string, unknown>>().notNull().default({}),
+    /**
+     * Identity for a message that reports a world fact, so telling somebody
+     * about it twice is impossible.
+     *
+     * Needed because presentation is deliberately split from the fact it
+     * presents: an offer's message is written outside the transaction that
+     * created the offer, so a failed write is retried on a later day advance and
+     * must not produce a second copy. Keyed per opportunity *and moment* — one
+     * night is legitimately spoken about when it is offered, and again when it
+     * is answered. Null for ordinary conversation, and nulls are distinct.
+     */
+    idempotencyKey: text("idempotency_key"),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -100,6 +112,7 @@ export const npcMessages = pgTable(
       table.conversationId,
       table.createdAt,
     ),
+    idempotencyIdx: uniqueIndex("npc_messages_idempotency_key").on(table.idempotencyKey),
   }),
 );
 

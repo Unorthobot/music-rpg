@@ -8,6 +8,7 @@ import { simulateReceptionTick, type SimulateReceptionResult } from "./reception
 import { syncCareerRelationships } from "./relationships";
 import { surfaceRelationshipMoments } from "./moments";
 import { runOpportunityDirector, type RunDirectorResult } from "./opportunities";
+import { communicateOpportunities } from "./opportunity-messages";
 import type { OpportunityRow, RelationshipMomentRow } from "@music-rpg/database";
 
 /**
@@ -44,6 +45,14 @@ export type AdvanceDayResult = {
   expired: OpportunityRow[];
   /** The director's full reasoning, including what it decided against. */
   director: RunDirectorResult | null;
+  /**
+   * Offers somebody wrote to the player about on this advance.
+   *
+   * Reported separately from `opportunities` because they are different facts:
+   * an offer exists whether or not anybody managed to mention it, and this is
+   * the list of the ones that got mentioned.
+   */
+  communicated: string[];
   gameTime: Date;
 };
 
@@ -127,6 +136,25 @@ export async function advanceCareerDay(
     userId: input.userId,
   });
 
+  /*
+   * 5. The people involved say so.
+   *
+   *    Separate from step 4 on purpose, and outside its transaction. The
+   *    director creates a world fact; this is somebody telling the player about
+   *    one that already exists — so a message that cannot be written costs
+   *    nothing. The offer is still real, Home still surfaces it, and the
+   *    communication is retried on the next day advance from the same persisted
+   *    facts, keyed per offer and per moment so it cannot be said twice.
+   *
+   *    It belongs here rather than to a render for the same reason the director
+   *    does: it is a write, and screens do not write. A player who opens
+   *    Messages ten times gets no new messages.
+   */
+  const spoken = await communicateOpportunities(ctx, {
+    careerId: career.id,
+    userId: input.userId,
+  });
+
   const latest = ticks.reduce(
     (newest, tick) => (tick.gameTime > newest ? tick.gameTime : newest),
     ticks[0]!.gameTime,
@@ -138,6 +166,7 @@ export async function advanceCareerDay(
     opportunities: directed.ok ? directed.value.created : [],
     expired: directed.ok ? directed.value.expired : [],
     director: directed.ok ? directed.value : null,
+    communicated: spoken.ok ? spoken.value.spokenAbout : [],
     gameTime: latest,
   });
 }
