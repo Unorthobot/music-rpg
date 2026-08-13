@@ -7,6 +7,7 @@ import {
 } from "@music-rpg/database";
 import type { PlayerOffer } from "@music-rpg/shared";
 import { getOfferHistory } from "./opportunity-view";
+import { getCareerBattleHistory } from "./battle-view";
 
 /**
  * Awareness, and nothing else.
@@ -35,12 +36,25 @@ export type Notification = {
   tone: "ASKING" | "DONE";
 };
 
-/** Which events are worth surfacing as awareness. */
+/**
+ * Which events are worth surfacing as awareness.
+ *
+ * `battle.resolved` is the M8 addition and the only battle event here, which is
+ * the point. A challenge already arrives as `opportunity.created`, because a
+ * challenge *is* an offer somebody made; the angle, the scouting and the
+ * preparation are the player's own actions and nobody needs telling about their
+ * own decisions.
+ *
+ * What genuinely needs a notification is the one thing that happened **while
+ * they were not looking**: the night came round, and three people decided
+ * something. A player must be told rather than discovering it.
+ */
 const NOTIFIED = [
   "opportunity.created",
   "opportunity.accepted",
   "opportunity.expired",
   "opportunity.withdrawn",
+  "battle.resolved",
 ] as const;
 
 export async function getNotifications(
@@ -48,7 +62,7 @@ export async function getNotifications(
   career: CareerRow,
   limit = 20,
 ): Promise<Notification[]> {
-  const [events, offers] = await Promise.all([
+  const [events, offers, battles] = await Promise.all([
     db
       .select()
       .from(gameEvents)
@@ -63,12 +77,35 @@ export async function getNotifications(
     // The same projection every surface reads. A notification never phrases the
     // offer for itself.
     getOfferHistory(db, career),
+    getCareerBattleHistory(db, career),
   ]);
 
   const byId = new Map(offers.map((offer) => [offer.id, offer]));
+  const battleById = new Map(battles.map((battle) => [battle.id, battle]));
   const notifications: Notification[] = [];
 
   for (const event of events) {
+    if (event.eventType === "battle.resolved") {
+      const battle = event.targetId ? battleById.get(event.targetId) : undefined;
+      if (!battle) continue;
+
+      notifications.push({
+        id: event.id,
+        /*
+         * That it happened and who it was with — never who took it. The result
+         * belongs to the screen that can give it three perspectives and a
+         * reason; a notification that led with the outcome would spoil the one
+         * moment this milestone builds toward, and a notification that led with
+         * a loss would be a defeat delivered as a push alert.
+         */
+        line: `Your night with ${battle.rival.name} happened`,
+        href: battle.href,
+        occurredAt: event.occurredAt,
+        tone: "DONE",
+      });
+      continue;
+    }
+
     const offer = event.targetId ? byId.get(event.targetId) : undefined;
     if (!offer) continue;
 

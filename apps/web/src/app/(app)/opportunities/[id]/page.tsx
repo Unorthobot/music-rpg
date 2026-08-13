@@ -316,6 +316,13 @@ export default async function OfferPage({
 /** The primary action names what is being taken, never the operation. */
 function takeLabel(offer: PlayerOffer): string {
   if (offer.type === "SESSION_INVITE") return `Book it with ${offer.source.name}`;
+  /*
+   * Agreeing to be somewhere, said as plainly as the refusal beside it. Not
+   * "Accept the challenge", which is quest vocabulary, and not anything with a
+   * verb of combat in it — the player is agreeing to a night, and what happens
+   * in the room is not something they are about to do.
+   */
+  if (offer.type === "BATTLE_CHALLENGE") return "Take it";
   if (offer.night?.nightName) return `Take ${offer.source.name}'s slot`;
   return "Take it";
 }

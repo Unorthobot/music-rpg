@@ -124,6 +124,14 @@ type ReadablePayload = {
   sessionId?: string;
   /** Written when the authored introduction was answered. */
   selectedProducerId?: string;
+  /*
+   * A challenge. The rival's own words, the room they picked, and how big it is
+   * — everything a person deciding whether to stand in it would want, and
+   * nothing about what either of them can do.
+   */
+  rivalName?: string;
+  venueName?: string;
+  challengeLine?: string;
 };
 
 /** The four endings and the one live state, in the player's vocabulary. */
@@ -182,6 +190,9 @@ function whatOf(row: OpportunityRow): string {
 
   if (row.type === "SESSION_INVITE") return "Another session";
   if (row.type === "PRODUCER_INTRO") return "Three producers";
+  if (row.type === "BATTLE_CHALLENGE") {
+    return [payload.venueName, payload.sceneName].filter(Boolean).join(" · ") || "A battle";
+  }
 
   return [payload.nightName, payload.sceneName].filter(Boolean).join(" · ") || "A night";
 }
@@ -215,7 +226,8 @@ function projectOffer(row: OpportunityRow, context: OfferContext): PlayerOffer {
     type: row.type,
     source,
     headline: headlineOf(row),
-    offerLine: payload.offerLine ?? null,
+    /* A challenge arrives in the rival's own words, which is their offer line. */
+    offerLine: payload.offerLine ?? payload.challengeLine ?? null,
     termsLine: payload.termsLine ?? null,
     night: nightOf(row, scene),
     feeMinor: feeOf(row),
@@ -248,6 +260,15 @@ function headlineOf(row: OpportunityRow): string {
 
   if (row.type === "SESSION_INVITE") return "Another session";
   if (row.type === "PRODUCER_INTRO") return "Three producers, looking for artists";
+  /*
+   * Said as the thing it is, and no louder than the booking beside it. The
+   * director already ranks a challenge below paid work early in a career, and an
+   * interface that made the battle the exciting card would be contradicting the
+   * world's own judgement about what matters to this career right now.
+   */
+  if (row.type === "BATTLE_CHALLENGE") {
+    return payload.rivalName ? `${payload.rivalName} called you out` : "Somebody called you out";
+  }
 
   return payload.billing ? BILLING_LABELS[payload.billing] : "A slot on a bill";
 }
@@ -259,7 +280,8 @@ function nightOf(row: OpportunityRow, scene: SceneRow | null): OfferNight | null
 
   return {
     at: new Date(stamp),
-    nightName: payload.nightName ?? null,
+    /* A battle's night is named by the room, because nobody named the night. */
+    nightName: payload.nightName ?? payload.venueName ?? null,
     sceneName: payload.sceneName ?? scene?.name ?? null,
     capacity: payload.capacity ?? null,
   };

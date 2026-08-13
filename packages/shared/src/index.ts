@@ -14,3 +14,4 @@ export * from "./result";
 export * from "./slug";
 export * from "./studio";
 export * from "./opportunity-view";
+export * from "./battle-view";

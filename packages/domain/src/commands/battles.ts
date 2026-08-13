@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, eq, inArray, lte, ne } from "drizzle-orm";
 import {
   artistPsychology,
   artistSkills,
@@ -561,10 +561,9 @@ export async function scoutBattleOpponent(
   const rival = await loadCompetitor(ctx.db, rivalArtistId);
   if (!rival) return err(DomainErrors.invalidCareerState("Nobody to scout."));
 
-  const [characterRows, relationshipRows, cohortStanding, priorRows] = await Promise.all([
+  const [characterRows, relationshipRows, priorRows] = await Promise.all([
     ctx.db.select().from(characters).where(eq(characters.artistId, rivalArtistId)).limit(1),
     ctx.db.select().from(relationships).where(eq(relationships.careerId, career.id)),
-    loadCohortStanding(ctx.db, career.worldId, career.id),
     ctx.db.select().from(battles).where(eq(battles.careerId, career.id)),
   ]);
 
@@ -587,7 +586,18 @@ export async function scoutBattleOpponent(
     fame: rival.artist.fame,
     respect: rival.artist.respect,
     sceneSlug,
-    sceneStanding: sceneStanding(sceneSlug, cohortStanding).value,
+    /*
+     * The rival's own standing, not this career's.
+     *
+     * `loadCohortStanding` is career-scoped — it reads `artist_audience` by
+     * `career_id` — so deriving a scene standing from it here described *the
+     * player* under a heading naming the rival. Rivals are seeded NPCs with no
+     * audience rows, and `artist.respect` is the world's recorded reputation for
+     * them: it is already what `resolveBattle` hands the Audience judge as
+     * `rivalStanding`, so scouting and judging now answer "how does this scene
+     * know them" the same way instead of two different ways.
+     */
+    sceneStanding: rival.artist.respect,
     relationship: relationship
       ? {
           rivalry: relationship.rivalry,
@@ -1287,6 +1297,26 @@ export async function resolveBattle(
       .returning();
 
     /*
+     * The night is over, so it stops being something the career is waiting on.
+     *
+     * Without this the booking sits in the Calendar's upcoming list forever —
+     * a commitment that has already happened, still presented as ahead. The
+     * rehearsals go with it: days that were spent are days that are done, and
+     * leaving them scheduled would have the career apparently still owing work
+     * for a battle it has already fought.
+     */
+    await tx
+      .update(calendarItems)
+      .set({ status: "COMPLETED", updatedAt: now })
+      .where(
+        and(
+          eq(calendarItems.relatedEntityType, "BATTLE"),
+          eq(calendarItems.relatedEntityId, row.id),
+          eq(calendarItems.status, "SCHEDULED"),
+        ),
+      );
+
+    /*
      * The public fact. The only LOCAL_PUBLIC event in this file, and the reason
      * is the brief's: the scene learns what *happened*, not what was proposed. A
      * challenge nobody accepted never reaches the world.
@@ -1501,4 +1531,146 @@ async function capacityOf(ctx: CommandContext, rivalArtistId: string): Promise<n
   const profile = (rows[0]?.preferences as { battler?: { capacity?: number } } | undefined)
     ?.battler;
   return profile?.capacity ?? null;
+}
+
+/* ------------------------------------------------- battles as scheduled events */
+
+/**
+ * A night the world has reached.
+ *
+ * The **first scheduled world event** — the first thing in this game that
+ * happens on a date whether or not anybody is looking. Releases tick because
+ * they are already in flight, sessions wait to be opened, and offers lapse by
+ * sweep; a battle is none of those. It is an appointment.
+ *
+ * This is deliberately battle-specific rather than a generic scheduler. The
+ * architecture does not yet demonstrate the need for a registry, and inventing
+ * one for a single event type would be the wrong milestone's work. What is
+ * preserved instead is the *shape*: a named step on the day advance, positioned
+ * so that a second scheduled event type slots in beside this one rather than
+ * replacing it.
+ *
+ * **The rule that outranks everything else here:** the result exists because
+ * game time reached the event. Never because somebody opened a screen. A player
+ * who never opens `/battles/[id]` still has the battle happen, is still told,
+ * and finds the decision waiting when they arrive.
+ *
+ * Only `SCHEDULED` battles are considered, and that is load-bearing: `ACCEPTED`
+ * means the angle has not been declared, and the day advance refuses to reach
+ * such a night at all rather than fighting it on the player's behalf. See
+ * `advanceCareerDay`.
+ */
+export async function resolveDueBattles(
+  ctx: CommandContext,
+  input: { careerId: string; userId: string; seed?: string },
+): Promise<Result<ResolveBattleResult[], DomainError>> {
+  const careerResult = await loadOwnedCareer(ctx.db, input.careerId, input.userId);
+  if (!careerResult.ok) return careerResult;
+  const career = careerResult.value;
+
+  const due = await ctx.db
+    .select()
+    .from(battles)
+    .where(
+      and(
+        eq(battles.careerId, career.id),
+        eq(battles.status, "SCHEDULED"),
+        lte(battles.scheduledGameTime, career.currentGameDate),
+      ),
+    )
+    .orderBy(asc(battles.scheduledGameTime));
+
+  const resolved: ResolveBattleResult[] = [];
+
+  for (const row of due) {
+    const outcome = await resolveBattle(ctx, {
+      careerId: career.id,
+      userId: input.userId,
+      battleId: row.id,
+      ...(input.seed ? { seed: input.seed } : {}),
+    });
+
+    /*
+     * A battle that cannot resolve must not undo a day that already happened —
+     * the reception is written and the clock has moved. The same tolerance the
+     * director gets, for the same reason: this reports what the night produced,
+     * not whether the day was allowed to occur.
+     */
+    if (outcome.ok && outcome.value.ran) resolved.push(outcome.value);
+  }
+
+  return ok(resolved);
+}
+
+/**
+ * A commitment the world is not allowed to walk past.
+ *
+ * Accepting a battle is a decision with a consequence, and this is the
+ * consequence: **time cannot cross an accepted event whose required pre-event
+ * decision has not been made.** In M8 that decision is the angle, because
+ * `resolveBattle` genuinely cannot run without one — a round has to be an
+ * attempt at something before anybody can judge whether it came off.
+ *
+ * The alternatives were all worse. Auto-selecting an angle decides the one thing
+ * the player is actually there to decide; resolving without one is a battle
+ * nobody turned up to; letting the night slide by and accepting a declaration
+ * afterwards produces `agreed → night passes → strategy chosen → battle happens`,
+ * which is not a timeline; and a `FORFEITED` state is new lifecycle vocabulary
+ * invented for a case the player can always avoid.
+ *
+ * **This does not make battles mandatory.** Declining was free, cost no respect,
+ * and remains a complete answer — nothing here is reachable without the player
+ * having already agreed to be somewhere.
+ *
+ * Returns the battle that blocks, or null when nothing does.
+ */
+async function battleBlockingTime(
+  ctx: CommandContext,
+  career: CareerRow,
+  nextGameTime: Date,
+): Promise<{ battle: BattleRow; rivalName: string } | null> {
+  const accepted = await ctx.db
+    .select()
+    .from(battles)
+    .where(
+      and(
+        eq(battles.careerId, career.id),
+        eq(battles.status, "ACCEPTED"),
+        lte(battles.scheduledGameTime, nextGameTime),
+      ),
+    )
+    .orderBy(asc(battles.scheduledGameTime))
+    .limit(1);
+
+  const row = accepted[0];
+  if (!row) return null;
+
+  const rivalArtistId = opponentArtistOf(row);
+  const rivalRows = rivalArtistId
+    ? await ctx.db.select().from(artists).where(eq(artists.id, rivalArtistId)).limit(1)
+    : [];
+
+  return { battle: row, rivalName: rivalRows[0]?.stageName ?? "somebody" };
+}
+
+/**
+ * Whether a day advance may proceed, and why not when it may not.
+ *
+ * Exported for `advanceCareerDay`, which is the only caller and the only place
+ * this belongs: the rule is about the clock moving, so it is enforced where the
+ * clock moves rather than in a screen that could be bypassed by another screen.
+ */
+export async function guardAcceptedBattles(
+  ctx: CommandContext,
+  career: CareerRow,
+  nextGameTime: Date,
+): Promise<DomainError | null> {
+  const blocking = await battleBlockingTime(ctx, career, nextGameTime);
+  if (!blocking) return null;
+
+  return DomainErrors.invalidCareerState(
+    `You agreed to battle ${blocking.rivalName} tonight. Decide how you're going in before the day moves on.`,
+    /* Structured for logs and World Control. Never rendered. */
+    { meta: { battleId: blocking.battle.id } },
+  );
 }

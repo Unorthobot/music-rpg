@@ -1,6 +1,7 @@
 export * from "./challenge";
 export * from "./constants";
 export * from "./consequences";
+export * from "./describe";
 export * from "./perform";
 export * from "./resolve";
 export * from "./scout";

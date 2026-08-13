@@ -805,6 +805,30 @@ export async function acceptOpportunity(
   if (!opportunity || opportunity.careerId !== career.id) {
     return err(DomainErrors.invalidInput("That offer doesn't exist."));
   }
+
+  /*
+   * A challenge is not answered here.
+   *
+   * Accepting one has to create a `battles` row, book the night and record who
+   * agreed to face whom — none of which this command knows how to do. Left
+   * unguarded it would happily flip the opportunity to `ACCEPTED` and stop,
+   * producing a challenge that has been taken, has no battle behind it, and can
+   * never be taken again because `acceptBattleChallenge` requires an offer that
+   * is still `AVAILABLE`. That is an unrecoverable state reachable from a screen
+   * that looks exactly like every other offer screen.
+   *
+   * Refused structurally rather than fixed by routing, so no future caller can
+   * reintroduce it by pointing a new surface at the generic command.
+   */
+  if (opportunity.type === "BATTLE_CHALLENGE") {
+    return err(
+      DomainErrors.invalidCareerState(
+        "A challenge is answered where the battle is, not here.",
+        { meta: { opportunityId: opportunity.id, use: "acceptBattleChallenge" } },
+      ),
+    );
+  }
+
   if (opportunity.status === "ACCEPTED" || opportunity.status === "RESOLVED") {
     // Already taken: hand back what exists rather than booking twice.
     const settled = opportunity.payload as { sessionId?: string };
@@ -1136,6 +1160,23 @@ export async function declineOpportunity(
   if (opportunity.status === "DECLINED") return ok(opportunity);
   if (opportunity.status !== "AVAILABLE") {
     return err(DomainErrors.invalidCareerState("That offer isn't yours to answer any more."));
+  }
+
+  /*
+   * Nor is a challenge refused here, for the mirror of the reason it is not
+   * accepted here. Turning somebody down is a thing that happens *between two
+   * people*: `declineBattleChallenge` records who refused whom, which is what
+   * M6's fold prices as `CHALLENGE_DECLINED` and what lets the rival write back.
+   * This command would flip the status and tell nobody, which is the one way a
+   * refusal can be got wrong — not by penalising it, but by making it silent.
+   */
+  if (opportunity.type === "BATTLE_CHALLENGE") {
+    return err(
+      DomainErrors.invalidCareerState(
+        "A challenge is answered where the battle is, not here.",
+        { meta: { opportunityId: opportunity.id, use: "declineBattleChallenge" } },
+      ),
+    );
   }
 
   const now = contextNow(ctx);

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCalendarOffers, getCareerCalendar } from "@music-rpg/domain";
+import { getCalendarBattles, getCalendarOffers, getCareerCalendar } from "@music-rpg/domain";
 import { EmptyState, Label, Surface, Tag } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
@@ -18,7 +18,7 @@ export const metadata = { title: "Calendar" };
 export default async function CalendarPage() {
   const { user, view } = await requireCareer();
   const db = await getAppDb();
-  const [calendar, offers] = await Promise.all([
+  const [calendar, offers, battlesByItem] = await Promise.all([
     getCareerCalendar(db, view.career),
     /*
      * The offer behind each booking, so causality reads backwards: from a night
@@ -27,6 +27,13 @@ export default async function CalendarPage() {
      * back is a row with a title on it.
      */
     getCalendarOffers(db, view.career),
+    /*
+     * And the battle behind a night that is one, for the same reason. The
+     * Calendar answers *when does it happen* and nothing else — it grows no
+     * battle-specific controls, no angle picker and no preparation button. It
+     * says which night this is and points at where those decisions live.
+     */
+    getCalendarBattles(db, view.career),
   ]);
 
   const ctx = await createCommandContext();
@@ -74,6 +81,7 @@ export default async function CalendarPage() {
             {calendar.upcoming.map((item) => {
               const isSession = item.relatedEntityType === "CREATIVE_SESSION";
               const offer = offers.get(item.id) ?? null;
+              const battle = battlesByItem.get(item.id) ?? null;
 
               const body = (
                 <Surface
@@ -94,6 +102,11 @@ export default async function CalendarPage() {
                     {offer ? (
                       <span className="text-sm text-ink-muted">
                         {[offer.source.name, offer.headline].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
+                    {battle ? (
+                      <span className="text-sm text-ink-muted">
+                        {[battle.rival.name, battle.night.venueName].filter(Boolean).join(" · ")}
                       </span>
                     ) : null}
                     {item.description ? (
@@ -124,6 +137,15 @@ export default async function CalendarPage() {
                       The offer
                     </Link>
                   ) : null}
+
+                  {battle ? (
+                    <Link
+                      href={battle.href}
+                      className="self-start text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+                    >
+                      {battle.stage === "DECIDED" ? "What they decided" : "The night"}
+                    </Link>
+                  ) : null}
                 </li>
               );
             })}
@@ -135,23 +157,41 @@ export default async function CalendarPage() {
         <section className="flex flex-col gap-3">
           <Label>Done</Label>
           <ul className="flex flex-col gap-2">
-            {calendar.past.map((item) => (
-              <li key={item.id}>
-                <Surface
-                  level={1}
-                  padded="sm"
-                  className="flex items-start justify-between gap-4 opacity-70"
-                >
-                  <span className="flex flex-col gap-1 min-w-0">
-                    <Label>{item.status.toLowerCase()}</Label>
-                    <span className="text-base text-ink">{item.title}</span>
-                  </span>
-                  <time className="text-xs text-ink-subtle whitespace-nowrap">
-                    {formatDate(item.startGameTime)}
-                  </time>
-                </Surface>
-              </li>
-            ))}
+            {calendar.past.map((item) => {
+              const battle = battlesByItem.get(item.id) ?? null;
+
+              return (
+                <li key={item.id} className="flex flex-col gap-1">
+                  <Surface
+                    level={1}
+                    padded="sm"
+                    className="flex items-start justify-between gap-4 opacity-70"
+                  >
+                    <span className="flex flex-col gap-1 min-w-0">
+                      <Label>{item.status.toLowerCase()}</Label>
+                      <span className="text-base text-ink">{item.title}</span>
+                    </span>
+                    <time className="text-xs text-ink-subtle whitespace-nowrap">
+                      {formatDate(item.startGameTime)}
+                    </time>
+                  </Surface>
+
+                  {/*
+                    A night that happened still points at what came of it — the
+                    same battle, by the same id, as the notification and the
+                    route and Career's memory of it.
+                  */}
+                  {battle && battle.stage === "DECIDED" ? (
+                    <Link
+                      href={battle.href}
+                      className="self-start text-sm text-ember underline underline-offset-4 min-h-[44px] inline-flex items-center"
+                    >
+                      What they decided
+                    </Link>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

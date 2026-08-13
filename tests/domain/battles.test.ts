@@ -1,10 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  artistAudience,
+  artists,
+  audienceCohorts,
   battleJudgements,
   battlePerformances,
+  battleScoutingReports,
   battles,
   calendarItems,
   careers,
+  characters,
   eq,
   gameEvents,
   opportunities,
@@ -13,6 +18,7 @@ import {
   type BattleRow,
   type UserRow,
 } from "@music-rpg/database";
+import { sceneStanding } from "@music-rpg/simulation";
 import { GameEventType } from "@music-rpg/events";
 import {
   advanceCareerDay,
@@ -599,6 +605,98 @@ describe("what a battle leaves behind", () => {
     expect(first.unknowns.map((entry) => entry.label)).toContain(
       "What they will actually come with",
     );
+  }, 300_000);
+
+  /**
+   * A finding about them is about *them*.
+   *
+   * The regression. `scoutBattleOpponent` derived its scene standing from
+   * `loadCohortStanding(db, worldId, careerId)` — which reads `artist_audience`
+   * by career, and therefore described **this career's** standing under a
+   * heading naming the rival. Invisible headlessly, because nothing rendered a
+   * finding; unavoidable the moment "Around the scene" is a player-facing
+   * heading making a claim the world is supposed to own.
+   *
+   * The two values are forced apart rather than hoped apart: the rival is given
+   * a sentinel reputation the player's own audience cannot produce, and the
+   * player's standing is recomputed here exactly the way the defect computed it.
+   * A regression puts the second number in the report and fails on both
+   * assertions at once.
+   */
+  it("takes the rival's standing from the rival, not from this career's audience", async () => {
+    const db = test.handle.db;
+
+    const rivalArtistId =
+      fought.battle.playerSide === "CHALLENGER"
+        ? fought.battle.opponentId!
+        : fought.battle.challengerId;
+
+    /* Distinctive, and nothing an early career's cohort standing lands on. */
+    const RIVAL_REPUTATION = 41;
+    await db.update(artists).set({ respect: RIVAL_REPUTATION }).where(eq(artists.id, rivalArtistId));
+
+    const careerRow = (
+      await db.select().from(careers).where(eq(careers.id, fought.careerId))
+    )[0]!;
+
+    const characterRow = (
+      await db.select().from(characters).where(eq(characters.artistId, rivalArtistId)).limit(1)
+    )[0];
+    const sceneSlug =
+      (characterRow?.preferences as { battler?: { sceneSlug: string } } | undefined)?.battler
+        ?.sceneSlug ?? "braamfontein";
+
+    /* What the defect would have reported: this career's own audience, weighted. */
+    const [cohortRows, audienceRows] = await Promise.all([
+      db.select().from(audienceCohorts).where(eq(audienceCohorts.worldId, careerRow.worldId)),
+      db.select().from(artistAudience).where(eq(artistAudience.careerId, fought.careerId)),
+    ]);
+
+    const careerStanding = sceneStanding(
+      sceneSlug,
+      cohortRows.map((cohort) => {
+        const audience = audienceRows.find((row) => row.cohortId === cohort.id);
+        return {
+          slug: cohort.slug,
+          name: cohort.name,
+          size: cohort.size,
+          fans: audience?.fans ?? 0,
+          affinity: audience?.affinity ?? 0,
+          priorExposure: audience?.priorExposure ?? 0,
+          sceneAffinity: cohort.sceneAffinity,
+        };
+      }),
+    ).value;
+
+    expect(
+      careerStanding,
+      "the test proves nothing unless the two values genuinely differ",
+    ).not.toBeCloseTo(RIVAL_REPUTATION, 3);
+
+    /*
+     * The report is written once and stands, so the persisted one is cleared to
+     * make scouting derive a fresh answer. The same technique the M7 boundary
+     * suite uses to re-run a communication.
+     */
+    await db
+      .delete(battleScoutingReports)
+      .where(eq(battleScoutingReports.battleId, fought.battle.id));
+
+    const report = unwrap(
+      await scoutBattleOpponent(test.ctx, {
+        careerId: fought.careerId,
+        userId: user.id,
+        battleId: fought.battle.id,
+      }),
+    );
+
+    const scene = report.findings.find((entry) => entry.source === "SCENE");
+    expect(scene, "scouting said nothing about the scene").toBeDefined();
+
+    expect(scene!.observed.sceneStanding).toBe(RIVAL_REPUTATION);
+    expect(scene!.observed.sceneStanding).not.toBe(careerStanding);
+    /* And the finding is still about the person it names. */
+    expect(scene!.label).toContain(sceneSlug);
   }, 300_000);
 });
 

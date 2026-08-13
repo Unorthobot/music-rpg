@@ -34,6 +34,7 @@ export * from "./queries/public-profile";
 export * from "./queries/reception";
 export * from "./queries/reception-view";
 export * from "./queries/battles";
+export * from "./queries/battle-view";
 export * from "./queries/opportunities";
 export * from "./queries/opportunity-view";
 export * from "./queries/career-story";

@@ -18,9 +18,10 @@ import {
   type TransactionRow,
 } from "@music-rpg/database";
 import { gameEventLabels } from "@music-rpg/events";
-import type { OfferTable, PlayerOffer } from "@music-rpg/shared";
+import type { OfferTable, PlayerBattle, PlayerOffer } from "@music-rpg/shared";
 import type { CareerRow } from "@music-rpg/database";
 import { getOffersForCharacter, getOfferTable } from "./opportunity-view";
+import { getBattleAwaitingAngle } from "./battle-view";
 
 /**
  * Career HQ read models.
@@ -42,6 +43,14 @@ export type RightNow = {
     | "OFFER_MESSAGE"
     /** Nothing unread, but something is waiting on an answer. */
     | "OFFER_WAITING"
+    /**
+     * A night they agreed to that still needs an angle.
+     *
+     * Not an offer — that decision has been made. This is the consequence of
+     * having made it, and it is the one prompt on Home the world will actually
+     * hold time for.
+     */
+    | "BATTLE_ANGLE"
     /** Out, and the world is deciding. */
     | "AWAITING_RECEPTION"
     | "NOTHING";
@@ -180,6 +189,12 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
     producerName: conversationRows[0]?.character.name ?? "someone",
     onTheTable,
     unreadOfferMessage: await findUnreadOfferMessage(db, onTheTable),
+    /*
+     * A night the career agreed to that still needs an answer. Read through the
+     * player projection like everything else here — Home has no more access to a
+     * battle's internals than any other screen.
+     */
+    battleAwaitingAngle: await getBattleAwaitingAngle(db, career),
   });
 
   return {
@@ -257,8 +272,31 @@ function resolveRightNow(input: {
   producerName: string;
   onTheTable: OfferTable;
   unreadOfferMessage: { conversationId: string; who: string; offer: PlayerOffer } | null;
+  battleAwaitingAngle: PlayerBattle | null;
 }): RightNow {
   // Order matters: this is a priority list, not a set of cards.
+
+  /*
+   * Above everything, because it is the one thing on this list the world is
+   * genuinely waiting on. Until it is answered, letting a day pass will be
+   * refused — so a player who was not told would press the button, be turned
+   * away, and have no idea why.
+   *
+   * Consequence-of-commitment language, and deliberately not encouragement. It
+   * names a night they already agreed to and the decision it still needs; it
+   * does not suggest battling, does not warn about missing anything, and does
+   * not appear at all for a career that turned the challenge down.
+   */
+  if (input.battleAwaitingAngle) {
+    return {
+      kind: "BATTLE_ANGLE",
+      title: `You're on with ${input.battleAwaitingAngle.rival.name}.`,
+      detail: "You still need to decide how you're going in.",
+      href: input.battleAwaitingAngle.href,
+      cta: "Decide how you're going in",
+    };
+  }
+
   if (input.activeSession && input.activeSession.status !== "SCHEDULED") {
     return {
       kind: "SESSION_IN_PROGRESS",
@@ -393,6 +431,16 @@ const STORY_EVENTS: Record<string, { eyebrow: string; state: "OPEN" | "DONE" }> 
   "creative_session.created": { eyebrow: "Studio", state: "OPEN" },
   "creative_session.completed": { eyebrow: "Studio", state: "DONE" },
   "track.saved_to_catalogue": { eyebrow: "Catalogue", state: "DONE" },
+  /*
+   * A night that happened, remembered permanently and neutrally.
+   *
+   * `battle.resolved` only — the challenge, the angle, the scouting and the
+   * preparation are steps, and a career's story is made of things that happened
+   * rather than of steps taken toward them. Refusals are remembered where
+   * refusals live, in the same register as a declined booking, and nothing here
+   * counts battles fought, won or turned down.
+   */
+  "battle.resolved": { eyebrow: "The scene", state: "DONE" },
 };
 
 async function buildStory(db: Database, career: CareerRow): Promise<StoryCard[]> {
@@ -440,6 +488,15 @@ function describeStoryEvent(type: string, payload: Record<string, string | numbe
       return "The session finished.";
     case "track.saved_to_catalogue":
       return `"${payload.title ?? "Untitled"}" is in your catalogue.`;
+    /*
+     * That it happened, and where. Never who took it and never the decision:
+     * the payload carries both, and Career is a list of things that happened
+     * rather than the place a result is delivered. The battle's own screen gives
+     * the outcome three perspectives and a reason, which is the only honest way
+     * to give it at all.
+     */
+    case "battle.resolved":
+      return "You stood in a room with somebody, and three people decided it.";
     default:
       return "";
   }
