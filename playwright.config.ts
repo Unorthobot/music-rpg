@@ -12,6 +12,13 @@ const PORT = 3101;
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  /*
+   * The world every run starts from, built before the server opens the data
+   * directory. It performs the wipe that used to live in the `webServer`
+   * command below, and additionally builds one canonical split decision — see
+   * `tests/e2e/global-setup.ts` for why that cannot be driven from a browser.
+   */
+  globalSetup: "./tests/e2e/global-setup.ts",
   timeout: 90_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
@@ -37,12 +44,13 @@ export default defineConfig({
     // first request to each route slow and occasionally flaky, which is a
     // property of `next dev` rather than of the app.
     //
-    // Paths are relative to `cwd` below: the data directory lives at the repo
-    // root, so both the wipe and PGLITE_DATA_DIR have to climb out of apps/web.
-    command: `rm -rf ../../.pglite/e2e && npx next build && npx next start -p ${PORT}`,
+    // The data directory lives at the repo root, so PGLITE_DATA_DIR has to climb
+    // out of apps/web. The wipe belongs to global setup, which runs first and
+    // needs the directory to itself.
+    command: `npx next build && npx next start -p ${PORT}`,
     cwd: "apps/web",
     url: `http://127.0.0.1:${PORT}`,
-    // Never reuse: each run starts from a freshly seeded database, so NPC
+    // Never reuse: global setup rebuilds the database every run, so NPC
     // candidates are unclaimed and the suite is deterministic.
     reuseExistingServer: false,
     timeout: 180_000,
