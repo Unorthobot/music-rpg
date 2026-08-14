@@ -440,11 +440,22 @@ describe("a single offer, across every surface", () => {
     expect(answered!.outcome).toBe("TAKEN");
     expect(view!.messages.some((message) => message.senderType === "PLAYER")).toBe(true);
 
-    /* Career remembers it, and remembers it as taken. */
+    /*
+     * Career history does *not* yet claim it happened.
+     *
+     * Changed in M8.5, and the original assertion here was the bug. This test
+     * previously required an accepted night to appear in the story as `TAKEN`,
+     * which renders as "Headlined …" / "Opened …" — past tense, in a history
+     * list, about a night nobody has played yet. That reading was the only one
+     * available while `RESOLVED` was unreachable for showcases; now that the
+     * clock actually resolves them, agreeing to a night and having played it are
+     * different facts and the story tells them apart.
+     *
+     * The acceptance is not lost — the calendar holds it and the promoter's
+     * thread reports it, both asserted above. It is simply not history yet.
+     */
     const story = await getOfferStory(db, career);
-    const remembered = story.find((entry) => entry.id === taken.id);
-    expect(remembered, "career history forgot the night").toBeDefined();
-    expect(remembered!.outcome).toBe("TAKEN");
+    expect(story.map((entry) => entry.id)).not.toContain(taken.id);
 
     /* Nothing about accepting moved a metric. Booking is not performing. */
     expect(career.fame).toBe((await careerOf(world)).fame);

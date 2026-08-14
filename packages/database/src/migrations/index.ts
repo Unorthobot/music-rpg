@@ -11,6 +11,7 @@ import { migration0010M6Moments } from "./0010_m6_moments";
 import { migration0011M7Opportunities } from "./0011_m7_opportunities";
 import { migration0012M7PlayerExperience } from "./0012_m7_player_experience";
 import { migration0013M8Battles } from "./0013_m8_battles";
+import { migration0014M85LivePerformances } from "./0014_m8_5_live_performances";
 
 export type Migration = { id: string; sql: string };
 
@@ -29,4 +30,5 @@ export const migrations: Migration[] = [
   migration0011M7Opportunities,
   migration0012M7PlayerExperience,
   migration0013M8Battles,
+  migration0014M85LivePerformances,
 ];

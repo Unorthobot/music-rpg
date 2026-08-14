@@ -78,6 +78,14 @@ export const ANALYTICS_EVENTS = [
   /** Refusing is a real path, and is measured as one rather than as a drop-off. */
   "battle_challenge_declined",
   "battle_resolved",
+
+  /* --- M8.5: Live Performance Resolution -------------------------------- */
+  /**
+   * A night the clock reached. Measured because it is the first thing in this
+   * game that pays a career, and because "accepted but never reached" and
+   * "played" have to be distinguishable in the funnel.
+   */
+  "performance_resolved",
 ] as const;
 
 export type AnalyticsEventName = (typeof ANALYTICS_EVENTS)[number];

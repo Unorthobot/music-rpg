@@ -57,22 +57,61 @@ type StoryPayload = {
   producerName?: string;
 };
 
-/** The instant an offer reached the state it is in. Never `updatedAt`. */
+/**
+ * The instant an offer reached the state it is in. Never `updatedAt`.
+ *
+ * `resolvedAt` is checked before `acceptedAt` because a resolved offer's ending
+ * is the resolution, not the agreement that preceded it. For a session this is
+ * a distinction without a difference — accepting books the room and stamps both
+ * in the same transaction — but a showcase is agreed on one date and played on
+ * another, and dating a night by when it was booked would put it in the story
+ * at a time nobody was on stage.
+ */
 function endedAt(row: OpportunityRow): Date {
   return (
     row.declinedAt ??
     row.expiredAt ??
     row.withdrawnAt ??
-    row.acceptedAt ??
     row.resolvedAt ??
+    row.acceptedAt ??
     row.generatedAtGameTime ??
     row.createdAt
   );
 }
 
+/**
+ * Whether accepting an offer is, by itself, the thing having happened.
+ *
+ * For most offers it is. Accepting a session invitation books the room through
+ * `bookProducerSession` in the same transaction — the studio exists, the money
+ * has moved, and "Back in the studio with Thabo" is true the moment it is
+ * agreed. A producer introduction is the same: choosing is the act.
+ *
+ * **A showcase is not.** Accepting one writes a date in the diary and nothing
+ * else. The night happens when game time reaches it, which may be a week later
+ * and is not guaranteed to have occurred at all — that is the whole subject of
+ * M8.5. Until then there is no `performances` row, no fee and no public fact.
+ *
+ * This distinction was invisible until M8.5, because `RESOLVED` was unreachable
+ * for showcases: `ACCEPTED` was the only state one could ever be observed in, so
+ * treating it as history had exactly one meaning. Now the same status means
+ * "agreed to, still ahead", and rendering it as `TAKEN` would put
+ * *"Opened Rooftop hours, Braamfontein"* — past tense, in a history list — above
+ * a night nobody has played yet.
+ */
+function acceptanceIsTheEvent(row: OpportunityRow): boolean {
+  return row.type !== "SHOWCASE_SLOT";
+}
+
 function outcomeOf(row: OpportunityRow): PlayerOfferOutcome | null {
   switch (row.status) {
     case "ACCEPTED":
+      /*
+       * A booked night is a commitment, not history. It belongs to the Calendar
+       * until the clock reaches it — and the `default` branch below already says
+       * why putting a thing that has not happened here would be wrong.
+       */
+      return acceptanceIsTheEvent(row) ? "TAKEN" : null;
     case "RESOLVED":
       return "TAKEN";
     case "DECLINED":

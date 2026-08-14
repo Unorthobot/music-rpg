@@ -7,6 +7,7 @@ export * from "./ids";
 export * from "./money";
 export * from "./numbers";
 export * from "./opportunities";
+export * from "./performances";
 export * from "./reception";
 export * from "./relationships";
 export * from "./releases";

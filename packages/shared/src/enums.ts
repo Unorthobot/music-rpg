@@ -223,6 +223,14 @@ export const TRANSACTION_CATEGORIES = [
   "STUDIO_COST",
   "SESSION_REFUND",
   "STARTING_CAPITAL",
+  /**
+   * A night's agreed fee, credited when the night resolves.
+   *
+   * The first category through which money moves *into* a career. The amount is
+   * the one the promoter set and the player accepted — nothing scales it by how
+   * the night went, because nobody in this world has ever been paid on results.
+   */
+  "PERFORMANCE_FEE",
   "OTHER",
 ] as const;
 export type TransactionCategory = (typeof TRANSACTION_CATEGORIES)[number];

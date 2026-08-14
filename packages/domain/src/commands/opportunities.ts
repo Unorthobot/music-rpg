@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, lte, ne, or } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, lte, notInArray, or } from "drizzle-orm";
 import {
   artistAudience,
   audienceCohorts,
@@ -161,8 +161,21 @@ export async function loadDirectorFacts(
       .where(
         and(
           eq(calendarItems.careerId, career.id),
-          // Cancelled bookings do not occupy a night.
-          ne(calendarItems.status, "CANCELLED"),
+          /*
+           * A commitment is something still owed. Two statuses are not:
+           *
+           * - `CANCELLED` — the booking was called off, so it never occupied
+           *   the night at all.
+           * - `COMPLETED` — it happened. A night you have already played is
+           *   history rather than an obligation, and leaving it here would mean
+           *   a career grew permanently less bookable every time it turned up
+           *   to something.
+           *
+           * M8.5 is what made the second case reachable: until nights and
+           * battles could complete, every commitment a career had was still
+           * ahead of it, and the distinction had nothing to bite on.
+           */
+          notInArray(calendarItems.status, ["CANCELLED", "COMPLETED"]),
         ),
       ),
     ctx.db.select().from(creativeSessions).where(eq(creativeSessions.careerId, career.id)),

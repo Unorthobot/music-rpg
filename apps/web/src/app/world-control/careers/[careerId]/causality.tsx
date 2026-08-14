@@ -10,13 +10,14 @@ import {
   npcConversations,
   npcMessages,
   opportunities,
+  performances,
   trackVersions,
   tracks,
   transactions,
   careerMemories,
   type Database,
 } from "@music-rpg/database";
-import { formatMoney } from "@music-rpg/shared";
+import { formatMoney, type PerformanceDerivation } from "@music-rpg/shared";
 import { Label, Surface } from "@music-rpg/ui";
 
 /**
@@ -36,6 +37,7 @@ export async function CareerCausality({ db, careerId }: { db: Database; careerId
     sessionRows,
     trackRows,
     memoryRows,
+    performanceRows,
   ] = await Promise.all([
     db.select().from(opportunities).where(eq(opportunities.careerId, careerId)),
     db
@@ -56,6 +58,11 @@ export async function CareerCausality({ db, careerId }: { db: Database; careerId
       .orderBy(asc(creativeSessions.createdAt)),
     db.select().from(tracks).where(eq(tracks.careerId, careerId)),
     db.select().from(careerMemories).where(eq(careerMemories.careerId, careerId)),
+    db
+      .select()
+      .from(performances)
+      .where(eq(performances.careerId, careerId))
+      .orderBy(asc(performances.occurredAtGameTime)),
   ]);
 
   const messages = conversationRows.length
@@ -84,6 +91,16 @@ export async function CareerCausality({ db, careerId }: { db: Database; careerId
 
   const mine = <T extends { sessionId?: string | null }>(rows: T[]) =>
     rows.filter((row) => row.sessionId && sessionIds.includes(row.sessionId));
+
+  /*
+   * Nights the career has agreed to and not yet reached. Read from the calendar
+   * rather than from the offer, because the commitment is what the clock acts
+   * on — and a booking still SCHEDULED is precisely a night that has not
+   * happened, whatever else the world holds about it.
+   */
+  const pendingNights = calendarRows
+    .filter((row) => row.type === "PERFORMANCE" && row.status === "SCHEDULED")
+    .sort((a, b) => a.startGameTime.getTime() - b.startGameTime.getTime());
 
   return (
     <>
@@ -156,6 +173,150 @@ export async function CareerCausality({ db, careerId }: { db: Database; careerId
             </li>
           ))}
         </ul>
+      </section>
+
+      {/*
+        * Nights.
+        *
+        * The chain the inspector must be able to walk without inferring
+        * anything: the offer with the promoter's terms as recorded, the
+        * commitment acceptance created, the night the clock reached, each of
+        * the three facts with its derivation, the fee and the ledger row it
+        * became, the standing movement decomposed, who in the audience was
+        * touched cohort by cohort within capacity, and the public fact.
+        *
+        * And — separately and just as important — that a night which has not
+        * happened yet is *scheduled*, for a date, with nothing paid and
+        * nothing moved. "This has not happened" is an answer the inspector has
+        * to be able to give as confidently as "this did".
+        */}
+      <section className="flex flex-col gap-3">
+        <Label>
+          Nights ({performanceRows.length} played · {pendingNights.length} scheduled)
+        </Label>
+
+        {pendingNights.map((item) => {
+          const offer = opportunityRows.find((row) => row.id === item.relatedEntityId);
+          const terms = (offer?.payload ?? {}) as Record<string, unknown>;
+          return (
+            <div
+              key={item.id}
+              className="rounded-md border border-line-subtle px-3 py-2 text-xs font-mono text-ink-muted"
+            >
+              <div className="text-ink">
+                SCHEDULED · {String(terms.nightName ?? item.title)} ·{" "}
+                {new Date(item.startGameTime).toISOString()}
+              </div>
+              <div>
+                billing {String(terms.billing ?? "?")} · capacity{" "}
+                {String(terms.capacity ?? "?")} · agreed fee{" "}
+                {formatMoney(Number(terms.payoutMinor ?? 0))}
+              </div>
+              {/* Asserted from rows, not claimed: there is no night behind this. */}
+              <div className="text-ink-subtle">
+                no performances row · nothing paid · nothing moved · offer{" "}
+                {offer?.status ?? "?"}
+              </div>
+            </div>
+          );
+        })}
+
+        {performanceRows.map((row) => {
+          const offer = opportunityRows.find((item) => item.id === row.opportunityId);
+          const fee = transactionRows.find((item) => item.id === row.transactionId);
+          const consequences = row.consequences as {
+            pressure?: {
+              fame?: number;
+              respect?: number;
+              heat?: number;
+              contributions?: { metric: string; from: string; contribution: number }[];
+            };
+            audience?: {
+              totalAffected?: number;
+              capacity?: number;
+              cohorts?: { cohortSlug: string; attendees: number; wonOver: number; newFans: number }[];
+            };
+          };
+
+          return (
+            <div
+              key={row.id}
+              className="rounded-md border border-line-subtle px-3 py-2 text-xs font-mono text-ink-muted flex flex-col gap-1"
+            >
+              <div className="text-ink">
+                {row.billing} · {row.nightName ?? "a night"} · {row.sceneSlug} ·{" "}
+                {new Date(row.occurredAtGameTime).toISOString()}
+              </div>
+
+              {/* The offer, with the promoter's terms as recorded. */}
+              <div>
+                offer {row.opportunityId} · {offer?.status ?? "?"} · promoter{" "}
+                {row.promoterName ?? "?"} ({row.promoterCharacterId ?? "no character"}) ·{" "}
+                {row.termsLine ?? "no terms line"}
+              </div>
+
+              {/* The commitment it created, and the night the clock reached. */}
+              <div>
+                commitment {row.calendarItemId ?? "none"} · capacity {row.capacity} · standing{" "}
+                {row.sceneStandingValue} · momentum {row.momentum} · seed {row.seed} ·{" "}
+                {row.simulatorVersion}
+              </div>
+
+              {/* Each fact, with its derivation. Nothing sums them. */}
+              <div className="text-ink">
+                in the room {row.attendance} · won over {row.wonOver} · word left the room{" "}
+                {row.wordLeftTheRoom}
+              </div>
+              {(row.derivation as PerformanceDerivation[]).map((entry) => (
+                <div key={entry.fact} className="text-ink-subtle pl-3">
+                  {entry.fact} = {entry.value} (bound {entry.bound} · {entry.boundLabel} ·{" "}
+                  {entry.bounded ? "bound bit" : "bound spare"}) ←{" "}
+                  {entry.contributions
+                    .map((one) => `${one.term} ${one.input}×${one.weight}=${one.contribution}`)
+                    .join(" · ")}
+                </div>
+              ))}
+
+              {/* The fee, and the ledger row it became. */}
+              <div>
+                fee {formatMoney(row.feeMinor)} ={" "}
+                {fee
+                  ? `${fee.category} ${fee.direction} ${formatMoney(fee.amountMinor)} → balance ${formatMoney(
+                      fee.balanceAfterMinor,
+                    )} · ${fee.idempotencyKey}`
+                  : "no ledger row"}
+              </div>
+
+              {/* Fame / Respect / Heat movement, decomposed. */}
+              <div>
+                pressure fame {consequences.pressure?.fame ?? 0} · respect{" "}
+                {consequences.pressure?.respect ?? 0} · heat {consequences.pressure?.heat ?? 0}
+              </div>
+              {(consequences.pressure?.contributions ?? []).map((one, index) => (
+                <div key={index} className="text-ink-subtle pl-3">
+                  {one.metric} ← {one.from} = {one.contribution}
+                </div>
+              ))}
+
+              {/* Who was touched, cohort by cohort, within capacity. */}
+              <div>
+                audience {consequences.audience?.totalAffected ?? 0} affected ≤ attendance{" "}
+                {row.attendance} ≤ capacity {row.capacity}
+              </div>
+              {(consequences.audience?.cohorts ?? []).map((one) => (
+                <div key={one.cohortSlug} className="text-ink-subtle pl-3">
+                  {one.cohortSlug} · {one.attendees} in the room · {one.wonOver} won over ·{" "}
+                  {one.newFans} new fans
+                </div>
+              ))}
+
+              {/* As the scene saw it. */}
+              <div className="text-ink-subtle">
+                performance.resolved · LOCAL_PUBLIC · performance:{row.opportunityId}:resolved
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       {sessionRows.map((session) => {

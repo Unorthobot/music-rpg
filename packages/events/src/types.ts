@@ -149,6 +149,25 @@ export const GameEventType = {
   BattleResolved: "battle.resolved",
   /** Standing and relationship movement, with the facts that caused them. */
   BattleConsequencesApplied: "battle.consequences_applied",
+
+  /* --- M8.5: Live Performance Resolution -------------------------------- */
+  /**
+   * A night that happened.
+   *
+   * `PerformanceResolved` is the one that matters and the only `LOCAL_PUBLIC`
+   * event this milestone writes: it is what makes a night a thing the scene
+   * saw, rather than a thing a career privately did. An accepted showcase that
+   * the clock has not reached emits neither of these, which is the whole point
+   * — accepting a night is not evidence that it happened.
+   *
+   * `PerformancePerformed` is the private half, in the two-step shape
+   * `battle.performed` established: what occurred in the room, before anything
+   * has been paid or priced.
+   */
+  PerformancePerformed: "performance.performed",
+  PerformanceResolved: "performance.resolved",
+  /** The fee, the standing movement and the audience it touched, decomposed. */
+  PerformanceConsequencesApplied: "performance.consequences_applied",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -237,6 +256,10 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "battle.judged": "A judge decided",
   "battle.resolved": "A battle was decided",
   "battle.consequences_applied": "The battle moved things",
+
+  "performance.performed": "The night happened",
+  "performance.resolved": "You played a room",
+  "performance.consequences_applied": "The night moved things",
 };
 
 export type RecordEventInput = {

@@ -15,6 +15,7 @@ import {
   resolveDueBattles,
   type ResolveBattleResult,
 } from "./battles";
+import { resolveDuePerformances, type ResolvePerformanceResult } from "./performances";
 import type {
   CareerRow,
   OpportunityRow,
@@ -62,6 +63,14 @@ export type AdvanceDayResult = {
    * can say what the day contained without asking a screen to find out.
    */
   battles: ResolveBattleResult[];
+  /**
+   * Nights the world reached on this advance.
+   *
+   * Reported beside `battles` rather than merged into it: a night that happened
+   * and a battle that was fought are different facts, and a caller saying what
+   * the day contained should not have to tell them apart after the event.
+   */
+  performances: ResolvePerformanceResult[];
   /** Anything that surfaced because of what the day did. */
   moments: RelationshipMomentRow[];
   /** What the world decided it could offer, now that the day is fully written. */
@@ -211,8 +220,30 @@ export async function advanceCareerDay(
    *      call, not inside it. There is deliberately no registry: one event type
    *      does not demonstrate the need for one, and the ordering is the part
    *      worth preserving.
+   *
+   *      M8.5 is that second type, and the instruction is followed literally:
+   *      `resolveDuePerformances` is a sibling call, not a branch inside the
+   *      battle resolver and not a generalised scheduler replacing both. Two
+   *      event types still do not demonstrate the need for a registry.
+   *
+   *      Battles first, and only because they are older — nothing depends on
+   *      the order between them. A career cannot be booked to fight and play
+   *      the same night, because `NIGHT_IS_FREE` refused the second offer at
+   *      the point it was made.
    */
   const scheduled = await resolveDueBattles(ctx, {
+    careerId: career.id,
+    userId: input.userId,
+    ...(input.seed ? { seed: input.seed } : {}),
+  });
+
+  /*
+   *      A night the clock reached. Unlike a battle it needs no guard above:
+   *      a performance has no required pre-event decision, so there is nothing
+   *      time could cross that the player still owes an answer to. The night
+   *      simply happens.
+   */
+  const played = await resolveDuePerformances(ctx, {
     careerId: career.id,
     userId: input.userId,
     ...(input.seed ? { seed: input.seed } : {}),
@@ -274,6 +305,7 @@ export async function advanceCareerDay(
   return ok({
     ticks,
     battles: scheduled.ok ? scheduled.value : [],
+    performances: played.ok ? played.value : [],
     moments: surfaced.value.surfaced,
     opportunities: directed.ok ? directed.value.created : [],
     expired: directed.ok ? directed.value.expired : [],
