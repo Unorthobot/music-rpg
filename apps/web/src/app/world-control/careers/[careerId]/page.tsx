@@ -9,6 +9,7 @@ import { getAppDb } from "@/lib/db";
 import { CareerBattles } from "./battles";
 import { CareerCausality } from "./causality";
 import { CareerOpportunities } from "./opportunities";
+import { CareerProgression } from "./progression";
 import { CareerReception } from "./reception";
 import { CareerRelationships } from "./relationships";
 
@@ -168,6 +169,8 @@ export default async function WorldControlCareerDetail({
           </pre>
         </Surface>
       ) : null}
+
+      <CareerProgression db={db} careerId={view.career.id} />
 
       <CareerCausality db={db} careerId={view.career.id} />
 

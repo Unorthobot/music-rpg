@@ -10,6 +10,7 @@ import { syncCareerRelationships } from "./relationships";
 import { surfaceRelationshipMoments } from "./moments";
 import { runOpportunityDirector, type RunDirectorResult } from "./opportunities";
 import { communicateOpportunities } from "./opportunity-messages";
+import { evaluateCareerProgression, type ProgressionResult } from "./progression";
 import {
   guardAcceptedBattles,
   resolveDueBattles,
@@ -87,6 +88,15 @@ export type AdvanceDayResult = {
    * the list of the ones that got mentioned.
    */
   communicated: string[];
+  /**
+   * What the world concluded about the career itself, now the day is closed.
+   *
+   * Present on every advance, not only on the one that changes something: the
+   * evidence and the domains it folds into are the answer to "why has this career
+   * not come up" as much as to "why did it". Null only when the evaluation
+   * could not run, which is reported rather than treated as the day failing.
+   */
+  progression: ProgressionResult | null;
   gameTime: Date;
 };
 
@@ -297,6 +307,30 @@ export async function advanceCareerDay(
     userId: input.userId,
   });
 
+  /*
+   * 6. The world draws a conclusion about the career.
+   *
+   *    Last, and after the messages rather than merely after the director. The
+   *    act is an input to reception through `ACT_REACH`, so a phase that changed
+   *    before step 1 would apply a Come Up's reach to a day the career only
+   *    qualified at the end of — and a conclusion drawn about a half-written day
+   *    would be explaining a world that never existed. The world decides at the
+   *    close of the day and treats the artist differently *from tomorrow*.
+   *
+   *    Nothing here reinterprets the day that just happened. Reception,
+   *    relationships, moments and offers keep the act they were produced under;
+   *    the new one applies from the next simulation boundary onward.
+   *
+   *    A phase that cannot be evaluated must not undo a day that did happen, so
+   *    a failure is reported as "no transition" and the next advance evaluates
+   *    the same facts again — the same tolerance the director and the battles
+   *    get, for the same reason.
+   */
+  const concluded = await evaluateCareerProgression(ctx, {
+    careerId: career.id,
+    userId: input.userId,
+  });
+
   const latest = ticks.reduce(
     (newest, tick) => (tick.gameTime > newest ? tick.gameTime : newest),
     ticks[0]!.gameTime,
@@ -311,6 +345,7 @@ export async function advanceCareerDay(
     expired: directed.ok ? directed.value.expired : [],
     director: directed.ok ? directed.value : null,
     communicated: spoken.ok ? spoken.value.spokenAbout : [],
+    progression: concluded.ok ? concluded.value : null,
     gameTime: latest,
   });
 }

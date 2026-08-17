@@ -3,6 +3,7 @@ export * from "./chemistry";
 export * from "./describe";
 export * from "./opportunities";
 export * from "./performances";
+export * from "./progression";
 export * from "./random";
 export * from "./reception";
 export * from "./relationships";

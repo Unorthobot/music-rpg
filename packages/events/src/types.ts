@@ -168,6 +168,24 @@ export const GameEventType = {
   PerformanceResolved: "performance.resolved",
   /** The fee, the standing movement and the audience it touched, decomposed. */
   PerformanceConsequencesApplied: "performance.consequences_applied",
+
+  /* --- M9: The Come Up --------------------------------------------------- */
+  /**
+   * The world concluded that this career is no longer Underground.
+   *
+   * The exact sibling of `career.entered_underground`, and deliberately so: a
+   * phase change is a world fact, it belongs to time, and the shape a second
+   * transition needs was already here. `LOCAL_PUBLIC` and not `GLOBAL_PUBLIC` —
+   * the World feed does not currently distinguish the two, so writing the wider
+   * visibility would claim a reach the surface cannot deliver.
+   *
+   * The payload carries the evidence **as it stood**: which families held, which
+   * anchored it, and the game time the window opened. Not a score, because there
+   * is none — months later, under a newer evaluator, the inspector has to be
+   * able to say why this career came up using the facts the old one actually
+   * saw.
+   */
+  CareerEnteredComeUp: "career.entered_come_up",
 } as const;
 
 export type GameEventTypeKey = keyof typeof GameEventType;
@@ -260,6 +278,8 @@ export const gameEventLabels: Record<GameEventTypeValue, string> = {
   "performance.performed": "The night happened",
   "performance.resolved": "You played a room",
   "performance.consequences_applied": "The night moved things",
+
+  "career.entered_come_up": "Career entered The Come Up",
 };
 
 export type RecordEventInput = {

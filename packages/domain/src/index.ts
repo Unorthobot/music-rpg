@@ -24,6 +24,7 @@ export * from "./commands/opportunities";
 export * from "./commands/opportunity-messages";
 export * from "./commands/battles";
 export * from "./commands/performances";
+export * from "./commands/progression";
 export * from "./commands/advance-day";
 
 export * from "./queries/career-view";
