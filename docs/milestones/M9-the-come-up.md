@@ -12,6 +12,69 @@ for: `CAREER_ACTS` has read `UNDERGROUND · COME_UP · INDUSTRY · LEGACY` since
 `0001_init`, and `ACT_LABELS.COME_UP` has read *"The Come Up"* since the shell
 was built. The vocabulary is the repository's own.
 
+## Final model
+
+**This section is the current truth. Everything below it is the road here,
+including hypotheses the world falsified — kept deliberately as design
+evidence, not as instructions.**
+
+### The three recognition domains
+
+| Domain | True when |
+|---|---|
+| **RECEPTION** | At least **one** release satisfies the landed-work predicate: `engaged >= 60 AND repeat >= 20 AND conversions >= 10` |
+| **PEER** | A `WANTS_ANOTHER_SESSION` moment has **ever** occurred (OPEN, RESOLVED or EXPIRED), **or** a crew invitation was accepted. Respect never qualifies. |
+| **PUBLIC_RECORD** | At least **two distinct kinds** from the closed allow-list: `release.published`, `battle.resolved`, `performance.resolved`. Kinds, never occurrences. |
+
+### Qualification
+
+```
+qualified = recognitionDomains.length >= 2
+            AND at least one qualifying domain is not RECEPTION
+```
+
+The second clause is implied by two-of-three today and is kept explicit because
+it is the product invariant, not an arithmetic accident:
+
+> **Arbitrarily large magnitude within RECEPTION alone can never cause The Come
+> Up.**
+
+No weights. No total. No confidence. No percentage. **No durability window.** A
+career transitions on the first evaluation after its second domain becomes true.
+
+### Evidence descriptors — explanation only, no votes
+
+`AUDIENCE_THAT_STAYED`, `A_SCENE_THAT_KNOWS_YOU`, `WORK_LANDED_ONCE`,
+`WORK_THAT_LANDED`, `COHORT_BREADTH`, `PEOPLE_WHO_CAME_BACK`,
+`THINGS_THE_SCENE_SAW`.
+
+World Control renders all of them beneath the domain they explain. Exactly one
+descriptor decides each domain (`DOMAIN_QUALIFIER`); the rest describe.
+
+### The transition
+
+`UNDERGROUND -> COME_UP`, exactly once, never backwards:
+
+1. `careers.career_act = COME_UP` (conditional update — structural idempotency).
+2. `artists.is_public` **or** `groups.is_public` flips for the **controlled
+   entity only**. A group coming up never publishes its members.
+3. `career.entered_come_up`, `LOCAL_PUBLIC`, importance 90, idempotency-keyed.
+4. Future reception reads the existing `ACT_REACH.COME_UP`. History is untouched.
+5. Act-gated release formats open under the existing `availableFormats` rules.
+
+Four and five are existing behaviour becoming reachable. **M9 writes no new
+consequence logic for either.** `careers.legacy` and `artists.legacy` stay `0`.
+
+### Storage
+
+`career_progression_observations` records **when each domain was first reached**
+— `reception_first_reached_game_time`, `peer_first_reached_game_time`,
+`public_record_first_reached_game_time`, plus `last_evaluated_game_time` and
+`evaluator_version`. Set once, never cleared, never moved backwards. Game time
+only. It is history, not qualification state.
+
+---
+
 ## The question
 
 > **When is this career no longer Underground?**
@@ -280,9 +343,29 @@ reported as *no transition*, and the next advance evaluates the same facts again
 
 ## The evidence model
 
-Five **families**. Each is an independent boolean with a named reason and the
-value it was applied to. There are no weights, no confidence, no partial credit
-and no total.
+> **Amended after measurement.** This section originally specified five
+> structurally independent families and qualification at three-of-five with an
+> anchor pair. Audits against the post-M8.5 world falsified both halves — the
+> families are not independent (M8.5's nights write M5's `artist_audience`, so
+> one night moves three of them), and three of the five were true for a career
+> with five fans while none of them distinguished a career that never released
+> anything worth hearing. What replaced them is below; the descriptors survive
+> as explanation and no longer vote.
+
+**Three recognition domains**, each a boolean decided by exactly one question.
+There are no weights, no confidence, no partial credit and no total.
+
+| Domain | What it claims | Decided by |
+|---|---|---|
+| **RECEPTION** | The work landed with people at all | At least **one** release meeting the landed-work predicate: `engaged >= 60 AND repeat >= 20 AND conversions >= 10` |
+| **PEER** | A named creative person decided to keep investing | An **open `WANTS_ANOTHER_SESSION`** or an **accepted crew membership**. Respect alone never qualifies. |
+| **PUBLIC_RECORD** | The scene has witnessed this artist in more than one way | At least **two distinct kinds** from the closed allow-list. Kinds, never occurrences. |
+
+Beneath them the named **descriptors** remain, for explanation only:
+`AUDIENCE_THAT_STAYED`, `A_SCENE_THAT_KNOWS_YOU`, `WORK_LANDED_ONCE`,
+`WORK_THAT_LANDED` (the same predicate over two releases — repeated proof),
+`COHORT_BREADTH`, `PEOPLE_WHO_CAME_BACK`, `THINGS_THE_SCENE_SAW`. World Control
+reads all of them. **None of them carries a vote.**
 
 Each family reuses the `EligibilityCheck` shape M7 already established —
 `{ rule, passed, reason, observed }` — so World Control's existing inspector
@@ -322,23 +405,22 @@ as pre-existing and are **not** changed by M9 — see Defects.)*
 
 A career transitions to `COME_UP` when **all three** hold:
 
-1. **Breadth** — at least **three of the five** families are satisfied.
-   Three, not five, so no route is mandatory. Three, not one, so no single
-   quantity can carry a career.
-2. **An anchor** — at least one of **A_SCENE_THAT_KNOWS_YOU** or
-   **PEOPLE_WHO_CAME_BACK** is among them. A person or a place has to have
-   changed how they treat this artist. Audience, catalogue and public record are
-   all things that can be true of somebody nobody has decided anything about.
-3. **Durability** — breadth and anchor have both held continuously for at least
-   `COME_UP_DURABILITY_DAYS` of **game time**. A phase is not a spike, and Heat
-   already exists for spikes.
+1. **Breadth** — at least **two of the three** domains hold.
+2. **Beyond reception** — at least one holding domain is **not** RECEPTION.
+   Mathematically implied by two-of-three today and stated anyway, because it is
+   the semantic invariant and the arithmetic is a coincidence of there being
+   three domains:
+   > **Arbitrarily large magnitude within RECEPTION alone can never cause The
+   > Come Up.**
+~~3. **Durability** — the rule has held continuously for a window of game
+days.~~ **Removed after measurement — see below.**
 
 That is the entire model. It fits in a paragraph, it is explainable in the
 player's language without exposing anything, and it produces the properties the
 milestone requires.
 
-**This is the implementation hypothesis, not a product constant.** Three-of-five,
-the anchor pair and the window are the simplest rule that could produce the
+**This is the implementation hypothesis, not a product constant.** Two-of-three,
+the non-RECEPTION invariant and the window are the simplest rule that could produce the
 required properties, and the golden careers exist to **falsify** it. If they
 cannot be separated honestly — if the busy career qualifies, or the grinder does,
 or two genuinely different careers become indistinguishable — the correct
@@ -353,7 +435,7 @@ a test go green.
 
 ### Plural paths, structurally
 
-Not a balancing exercise — a consequence of the shape. With three-of-five plus an
+Not a balancing exercise — a consequence of the shape. With two-of-three plus the
 anchor, there are ten qualifying combinations, and:
 
 - **Battles are never required.** They contribute only to
@@ -420,7 +502,7 @@ Stated as mechanisms, not as intentions:
 - **Repetition saturates.** Fan conversion is fit-gated and bounded by cohort
   size; a fourth record aimed at the same three thousand people converts almost
   nobody new. `AUDIENCE_THAT_STAYED` and `WORK_THAT_LANDED` both stop moving.
-- **One number cannot reach three families.** They read disjoint tables.
+- **One number cannot reach two domains.** RECEPTION is magnitude; PEER is somebody's decision; PUBLIC_RECORD counts kinds. (The original claim here — that the *families* read disjoint tables — was falsified by M8.5 and is withdrawn.)
 - **The anchor cannot be manufactured by activity.** A promoter's headline
   standard is the promoter's; `WANTS_ANOTHER_SESSION` is M6's condition on
   somebody else's state. Booking more sessions does not raise trust — the *work*
@@ -847,7 +929,7 @@ not become *everything that happens after Underground*.
 Locked. Each step is the precondition for the next, and the order is not an
 implementation session's to rearrange.
 
-1. **Shared evidence vocabulary.** The five families and the qualification rules
+1. **Shared evidence vocabulary.** The three domains, the descriptors and the qualification rules
    as a closed list in `shared`, in the shape `EligibilityCheck` already uses.
    Named before anything evaluates them, so the model is designed rather than
    accumulated — M5's rule for its event vocabulary.
@@ -880,7 +962,7 @@ implementation session's to rearrange.
 
 - `careers.career_act` reaches `COME_UP` for at least four constructed careers
   with materially different histories, and at least two of them qualify on
-  disjoint family sets.
+  distinct domains.
 - At least two qualifying careers never battle; at least one never invites crew.
 - Golden careers **E**, **F** and **G** do not qualify, and World Control
   explains why in terms of families rather than numbers.
@@ -919,3 +1001,147 @@ game will finally let them make an album.
 
 > **A career phase is not something the player earns. It is a conclusion the
 > world draws — and it has to be able to say what it drew it from.**
+
+---
+
+## Archaeology — falsified hypotheses, kept as evidence
+
+> **Nothing in this section is an active requirement.** Each item was a stated
+> hypothesis in this brief that the world falsified when it was actually built.
+> It is kept because the reasoning is worth more than the conclusion, and
+> because a later reader deserves to know which ideas were tried and why they
+> failed. **The normative model is the "Final model" section at the top.**
+
+### Five-family voting → three recognition domains
+
+The brief specified five structurally independent families qualifying at
+three-of-five with an anchor pair, justified by the families reading disjoint
+tables. **Both halves were false.** M8.5's live performances write M5's
+`artist_audience`, so a single night moves three families at once; and against a
+measured reception spectrum, three of the five were true for a career with five
+fans while `WORK_THAT_LANDED` was true for nobody. The anchor pair was free —
+both anchors held by day 3 for a career that declined every offer.
+
+Replaced by **RECEPTION / PEER / PUBLIC_RECORD**, each decided by one question.
+The five families survive as **descriptors**: they explain, and they do not vote.
+
+### Respect-based PEER → an actual decision
+
+`relationship.respect >= INVITE_MIN_RESPECT` was a satisfier. Respect reaches
+100 — the ceiling — from a single producer session, so PEER was true on day 3
+for every career including the do-nothing control. Removed permanently. PEER
+now requires a `WANTS_ANOTHER_SESSION` moment or an accepted crew invitation.
+
+**And a bug found while proving it:** the evaluator read *currently open*
+moments, so answering a producer who asked to get back in the room deleted the
+evidence that they had asked. PEER now reads whether the moment ever existed, at
+any status. Pinned by [`tests/domain/progression-peer.test.ts`](../../tests/domain/progression-peer.test.ts).
+
+### RECEPTION frozen to landed-work-once
+
+A nine-career reception spectrum found the distribution **bimodal**: records
+either convert 4–9 people or 580–938, with nothing between. Creative direction
+drives it; release strategy barely moves it. The landed-work predicate
+(`engaged >= 60 AND repeat >= 20 AND conversions >= 10`) separates the two
+cleanly, survives seed variation 5/5 both ways, and produces a genuine borderline
+at 9 conversions. RECEPTION reads **one** landed release; `WORK_THAT_LANDED`
+keeps meaning **two** and became explanatory.
+
+Honest note kept as debt: of the three clauses, `conversions` does nearly all
+the work and **`repeat >= 20` never binds** — the minimum observed anywhere, even
+for dead records, is 150. Not changed here; M9 reads M5's bars and does not tune
+them.
+
+### `performance.resolved` added to PUBLIC_RECORD
+
+M8.5 made the live limb real, and the allow-list gained its third kind. Before
+it, public recognition was reachable only by fighting somebody. The coupling is
+one-directional and runs through the event log only: **M8.5 imports nothing from
+progression and would behave identically if M9 never shipped**, which is
+asserted as a test.
+
+### Durability hypothesis falsified and removed
+
+The window was specified so that "an instant is not a phase". Measurement showed
+it could only ever be a delay:
+
+- RECEPTION reads cumulative counters — monotonic.
+- PUBLIC_RECORD reads an append-only log.
+- PEER is historical once fixed.
+- No command in the codebase writes `CREW_STATUSES.LEFT`.
+
+**No domain in this world can lapse.** Seven, fourteen and twenty-one day
+windows were compared across the golden histories and every one produced exactly
+`second-domain day + N`, with no lapse in ninety days. Four confirmation models
+were evaluated as replacements; reconfirmation and domain-specific confirmation
+both fail because PUBLIC_RECORD caps at three kinds and most careers can only
+reach two, and "across boundaries" was vacuous because no history reaches both
+domains on the same day anyway.
+
+So there is **no durability layer**. A career transitions on the first
+evaluation after its second domain. The anti-grind property never depended on
+time — it comes from breadth, and Golden F fails at any magnitude forever.
+
+### Progression observations redefined
+
+`career_progression_observations` is no longer a durability tracker. It records
+**when each domain was first reached** — set once, never cleared, never moved
+backwards. `qualifying_since_game_time` and the reset-on-lapse semantics are
+gone. Qualification is recomputed on demand from facts other milestones own;
+what could not be recovered afterwards is *when*, and that is what is stored.
+
+### Golden F rewritten as reception-only
+
+F must never perform, battle, join crew or produce a PEER decision. Its job is
+to prove one thing: **arbitrarily large magnitude within RECEPTION alone can
+never cause The Come Up.** Measured at 900+ fan conversions, every promoter bar
+cleared, and blocked with `RECEPTION_ONLY`.
+
+### The final rule
+
+```
+qualified = recognitionDomains.length >= 2
+            AND at least one qualifying domain is not RECEPTION
+```
+
+No weights. No total. No confidence. No percentage. No window. No confirmation
+chore.
+
+---
+
+## Decision record — why durability was removed
+
+**Decision.** M9 ships with no durability window, no confirmation step and no
+qualification timer. A career transitions on the first evaluation after its
+second recognition domain becomes true.
+
+**The hypothesis.** The brief specified that breadth had to hold continuously
+for a window of game days, on the reasoning that *an instant is not a phase*.
+The intent was right: a spike should not be mistaken for a career changing.
+
+**What the world actually is.** Every qualifying domain is **historical
+recognition once earned**:
+
+- RECEPTION reads cumulative counters on `release_performance` — monotonic.
+- PUBLIC_RECORD reads `game_events`, which is append-only.
+- PEER reads whether somebody ever decided they wanted more.
+- No command in the codebase writes `CREW_STATUSES.LEFT`.
+
+**Therefore no domain can lapse**, and a window measured *delay* rather than
+*persistence*. Seven, fourteen and twenty-one day windows were compared across
+the golden histories and each produced exactly `second-domain day + N`, with no
+lapse observed in ninety days. Four confirmation models were evaluated as
+replacements; reconfirmation and domain-specific confirmation both fail because
+PUBLIC_RECORD caps at three kinds and most careers can only ever reach two, and
+"across simulation boundaries" was vacuous because no history reaches both
+domains on the same day anyway.
+
+**What replaced it.** Nothing — and that is the finding. The anti-grind property
+never depended on time. It comes from breadth plus the non-RECEPTION invariant,
+and Golden F is refused at any magnitude, forever. Keeping a timer would have
+meant shipping a mechanism that could never say no, under a word that claimed it
+could.
+
+**What was kept.** The persisted observation, redefined: `first reached`
+timestamps per domain, set once and never cleared. That is history the facts
+cannot reconstruct afterwards, and it is worth storing on its own merits.
