@@ -57,14 +57,14 @@ player**. World Control may expose all of it and already does.
 | `WORK_LANDED_ONCE`, `WORK_THAT_LANDED`, `AUDIENCE_THAT_STAYED`, `A_SCENE_THAT_KNOWS_YOU`, `COHORT_BREADTH`, `PEOPLE_WHO_CAME_BACK`, `THINGS_THE_SCENE_SAW` | *nothing* |
 | `satisfiedDomains`, `breadth`, `beyondReception`, `qualifying` | *nothing* |
 | `blockedBy`, `RECEPTION_ONLY`, `NOT_ENOUGH_DOMAINS`, `ALREADY_TRANSITIONED` | *nothing* — a career is never told why it has not come up |
-| `domainFirstReached`, first-reached timestamps | *nothing* |
+| `domainFirstReached`, `reception_first_reached_game_time`, `peer_first_reached_game_time`, `public_record_first_reached_game_time` | *nothing* — and specifically **never** the chapter's start date; see below |
 | `evaluatorVersion`, `PROGRESSION_EVALUATOR_VERSION` | *nothing* |
 | `engaged >= 60`, `repeat >= 20`, `conversions >= 10` | *nothing* — never as a requirement, target or near-miss |
 | two-of-three, domain count, "1 of 2" | *nothing*; there is no count to show |
 | `SCENE_WITNESSED_EVENT_TYPES` and its membership | *nothing* |
 | `ACT_REACH.COME_UP = 1.6` | *nothing* — see *Reach* below |
 | `careers.career_act = "COME_UP"` | **shown**, as a named chapter: "The Come Up" |
-| `career.entered_come_up`.`occurredAt` | **shown**, as the in-world date the chapter began |
+| `career.entered_come_up`.`occurredAt` | **shown**, as the game date the chapter began — **the only permitted source** |
 | `artists.is_public` / `groups.is_public` | **shown**, as a profile that is now reachable |
 | `availableFormats(...).available` / `.lockedReason` | **shown** — already is, and already honest |
 
@@ -82,7 +82,7 @@ read. Every surface below already exists.
 
 | Surface | The question it answers after the transition |
 |---|---|
-| **Home** | What is different now? (once) |
+| **Home** | What is different now? (on the day) |
 | **Career** | What stage am I at, and when did it start? |
 | **World** | What did the scene see? |
 | **Catalogue → Projects** | What can I make now? |
@@ -104,32 +104,48 @@ for a decision; they advance a day and the world has moved.
 
 In this order, and no other:
 
-1. **A notification**, in world-fact register. One, ever.
-2. **Home**, while the transition is still today in world terms, carrying a
-   one-time chapter line.
+1. **Notifications**, through the existing projection over canonical events.
+2. **Home**, on the game day of the transition, carrying a temporary line.
 3. **Career**, permanently, as the current chapter with the date it began.
 4. **World**, as a public fact the scene registered.
 
 **No modal. No takeover. No animation gate. No confetti.** A reduced-motion
 player and a player who refreshes mid-transition both get the same information.
 
-### The one-time treatment, without new state
+### Day-of-transition contextual treatment
 
-**The Home line is shown while the transition is *today* in world terms** — that
-is, while `career.entered_come_up`.`occurredAt` falls on the career's current
-in-world date. Once the clock moves, Home settles permanently.
+This is **not** a one-time treatment, a dismiss-on-view treatment, or a
+first-visit treatment. It is contextual on the world clock, and the name matters
+because the three alternatives all imply state that does not and must not exist.
 
-This needs no `seen_at` column, no dismissal endpoint and no read flag. That
-matters, because **notifications in this codebase have no read state**: they are
-derived from `game_events` on demand and carry no `readAt`. A "dismiss on first
-view" treatment would have required inventing per-player UI state, and worse, it
-would have meant *a screen changing because somebody looked at it* — which is the
-one thing every surface in this game is forbidden to do.
+**Exact semantics.** Home renders the temporary line when, and only when:
 
-Deriving from the world clock instead keeps the constitutional rule intact: a
-player who opens Home ten times on the day their career came up sees the same
-Home ten times, because nothing has changed. The news is simply news today and
-not tomorrow.
+```
+careers.career_act === "COME_UP"
+AND career.entered_come_up.occurredAt falls on the career's current game date
+```
+
+Which yields, by construction:
+
+- opening Home repeatedly on the same game day produces **the same state**;
+- refreshing **consumes nothing**;
+- advancing beyond that game day **removes** the treatment permanently;
+- a player who does not open Home on that game day **never sees the line at
+  all**.
+
+**That last consequence is accepted, deliberately.** The transition is not
+carried by the temporary line — it is carried by Career, by the World feed, by
+the notification projection and by the changed world itself, all of which are
+durable and none of which can be missed. The Home line is colour on the day it
+happened, not the delivery mechanism.
+
+The alternative — guaranteeing every player sees an acknowledgement exactly once
+— would require presentation state this codebase does not have: a `seen_at`, a
+dismissal write, or a consumable flag. Every one of those means **a screen
+changing because somebody looked at it**, which is the single thing every surface
+in this game is forbidden to do. If guaranteed first-view acknowledgement is ever
+genuinely required, it is a separate design decision with its own semantics, and
+it is **not introduced here**.
 
 ### What it must not be
 
@@ -165,10 +181,11 @@ when it did not.
 
 ## Surface by surface
 
-### Home — first visit after the transition
+### Home — on the game day of the transition
 
-One line, in the existing "right now" position, in the world's voice. It states
-what changed, not what was satisfied. It links to Career.
+One line, in the existing "right now" position, in the world's voice, rendered
+under the condition above. It states what changed, not what was satisfied. It
+links to Career.
 
 It must not: enumerate what qualified, name a domain, congratulate, or offer a
 "see what's new" tour.
@@ -183,8 +200,18 @@ before it.
 ### Career — the durable home of the act
 
 Career already renders `ACT_LABELS` and `ACT_LINES` in an "Act" surface. M9 adds
-exactly one fact: **when this chapter began**, read from
-`career.entered_come_up`.`occurredAt` as an in-world date.
+exactly one fact: **when this chapter began**.
+
+**The canonical source is `career.entered_come_up`.`occurredAt`, and nothing
+else.** It must not be derived from `reception_first_reached_game_time`,
+`peer_first_reached_game_time`, `public_record_first_reached_game_time`, the
+earliest qualifying domain, or the second-domain timestamp.
+
+Those are **causal observations** — they record when the world produced each kind
+of recognition, which is a different question from when the career changed act.
+A career can hold RECEPTION for weeks before a second domain arrives; the chapter
+did not begin then. The chapter begins when `UNDERGROUND → COME_UP` actually
+occurred, and exactly one row records that.
 
 The previous chapter remains visible as history. A career in The Come Up can see
 that it was in The Underground and when that ended. That is career history, and it
@@ -210,12 +237,12 @@ event that yields *"Career entered The Come Up"* — a sentence about a database
 row, in a feed that is supposed to be the scene talking. This is the same class of
 finding M7 recorded about `trigger_reason`.
 
-**Requirement:** a player-facing world line for this event, in the world's voice,
-naming the artist rather than "career". `gameEventLabels` stays as it is —
-World Control depends on it.
+**Requirement:** a player-facing world line for this event, naming the artist
+rather than "career". `gameEventLabels` stays as it is — World Control depends
+on it.
 
-The line must read as something the scene noticed, not as an announcement about a
-player. It should be sayable by a person.
+The line must be sayable by a person and supportable by the event alone. See
+*The transition copy* below for the proposed string and the ones rejected.
 
 ### Catalogue → Projects — what can be made now
 
@@ -264,18 +291,38 @@ describes members as publicly established. If the owner-preview surface says
 anything about visibility, the honest line is that the page is now reachable —
 not that the artist is famous.
 
-### Notifications — one, as a world fact
+### Notifications — a canonical event becoming eligible
 
-`career.entered_come_up` **should** notify. The transition happens on a day
-advance while the player is not watching, which is exactly the case
-Notifications exists for — the same argument M8 made for `battle.resolved`.
+`career.entered_come_up` **should** appear in Notifications. The transition
+happens on a day advance while the player is not watching, which is exactly the
+case Notifications exists for — the same argument M8 made for `battle.resolved`.
 
-It is not in `NOTIFIED` today. Adding it is an event/copy change, not a
-capability.
+**The semantics, stated precisely, because the obvious phrasing is wrong.**
+Notifications in this codebase are a *projection over canonical events*: they are
+derived from `game_events` on read and carry no `readAt`, no dismissal and no
+consumption. So the correct statement is **not** "a notification fires once".
 
-**Requirements:** world-fact register, not a reward toast. It links to Career.
-Never *"You unlocked The Come Up!"*. One notification, ever — the event carries
-an idempotency key and cannot fire twice.
+It is:
+
+> The canonical `career.entered_come_up` event becomes **eligible for the
+> existing notification projection exactly once**, because the underlying event
+> is itself exactly-once — one row, guarded by the idempotency key
+> `career:{id}:entered_come_up` and by the conditional act update.
+
+The notification surface then continues to show that item according to its
+existing behaviour, exactly as it does for `battle.resolved` and every offer
+event. There is no toast, nothing expires, and nothing is spent by looking.
+
+**M9 must not introduce:** `readAt` · dismissal state · notification consumption
+· a second transition event · a dedicated toast system.
+
+**Requirements:** world-fact register, not a reward. It links to Career. Never
+*"You unlocked The Come Up!"*.
+
+**Explicitly outside M9:** `performance.resolved` is also absent from `NOTIFIED`,
+so M8.5 nights currently surface no notification. That omission is real, was
+found here, and belongs to an M8.5 follow-up — **it is not fixed by this
+milestone** and must not be bundled into it.
 
 ### Messages — deliberately nothing
 
@@ -305,11 +352,12 @@ appears in any of them**, because none of it would ever be visible.
 The record went out weeks ago and found people. LEX, who produced it, raised the
 idea of getting back in the room; the player took it and made a second record.
 
-They advance a day. A notification: the scene has started to know the name.
+They advance a day. In Notifications: *"Your name is starting to travel."*
 
-Home, once: a line saying people are starting to know it. Career: the chapter is
-The Come Up, and it began on the 14th; The Underground is behind it, dated.
-World: a line about the artist, in the scene's voice. Projects: the EP row, which
+Home, that day: *"People are starting to know the name."* Career: the chapter is
+The Come Up, and it began on the 14th — the date the act changed, not the date
+any single piece of recognition landed; The Underground is behind it, dated.
+World: *"KXMO is starting to be a name people know."* Projects: the EP row, which
 has read *"not at this stage"* for the whole game, now reads *"you need at least
 four tracks"* — three in the catalogue, so not yet, but for a reason they can do
 something about.
@@ -381,7 +429,7 @@ to be quietly violated by a well-meaning "help the player" instinct.
 
 | # | Surface | State | Change |
 |---|---|---|---|
-| 1 | Home | first visit after transition | one-time chapter line |
+| 1 | Home | on the transition's game day | temporary chapter line |
 | 2 | Home | settled | none |
 | 3 | Home | before transition, any career | none — no module, ever |
 | 4 | Career | current act | chapter name, line, **date it began** |
@@ -393,7 +441,7 @@ to be quietly violated by a well-meaning "help the player" instinct.
 | 10 | Public profile | group | group `PUBLIC`, members unchanged |
 | 11 | Notifications | one entry | world-fact line, links to Career |
 | 12 | Messages | — | **no change; deliberately nothing** |
-| 13 | All | refresh / revisit | Home line persists for that in-world day, then never returns |
+| 13 | All | refresh / revisit | Home line persists for that game day, consumes nothing, then never returns |
 | 14 | All | mobile | every one of the above at phone width |
 
 ## Desktop and mobile
@@ -405,6 +453,50 @@ surfaces that already stack.
 Explicitly refused because they do not survive a phone and should not exist
 anywhere: a horizontal act timeline, a three-column chapter comparison, a stats
 panel, a progression dashboard.
+
+## The transition copy, and what supports it
+
+Every player-facing string caused by the transition must pass one test:
+
+> **Could this sentence be supported by `career.entered_come_up` alone?**
+
+The event carries the artist, the world, the game date and the fact that the act
+changed. It carries **no** actor, no audience reaction and no route. So the copy
+describes **a change in standing**, and never invents:
+
+press attention · fan chatter · industry interest · a collaborator's reaction ·
+venue demand · *"everyone knows your name"* · a specific person noticing.
+
+**Route colour lives in the events that caused the transition, not in this one.**
+The producer coming back, the crew member saying yes, the battle, the night —
+each already has its own message, notification and history entry, written by the
+milestone that owns it. The Come Up line must not reverse-engineer which of them
+qualified the career, because doing so would narrate the qualification path
+straight back to the player.
+
+**Proposed copy.** Four registers, one claim:
+
+| Surface | Line |
+|---|---|
+| World feed | *"KXMO is starting to be a name people know."* |
+| Notification | *"Your name is starting to travel."* |
+| Home, on the day | *"People are starting to know the name."* |
+| Career (`ACT_LINES.COME_UP`) | *"People are starting to know it."* |
+
+Each names no actor, claims no reaction, and would remain true for every one of
+the four qualifying routes — which is the point, because the player must not be
+able to infer their route from the wording.
+
+**Rejected, with reasons:**
+
+| Rejected | Why |
+|---|---|
+| *"The scene is talking about you."* | Invents chatter no event records |
+| *"Promoters are paying attention."* | Invents an actor; also implies a mechanic |
+| *"Your last record changed things."* | Attributes cause; false for a PEER-only route |
+| *"People came back for you."* | Narrates the qualification path |
+| *"You're on the radar now."* | Implies an observer that does not exist |
+| *"Career entered The Come Up."* | The row label; not a sentence a person says |
 
 ## Copy rules
 
@@ -490,8 +582,9 @@ beside it. *(Pre-existing pattern: `career.entered_underground` has the same
 problem today and is out of scope here.)*
 
 **Event gap — the notification.** `career.entered_come_up` is not in `NOTIFIED`
-in `queries/notifications.ts`, so no notification fires. Adding the type and its
-copy is the work.
+in `queries/notifications.ts`, so the event never becomes eligible for the
+notification projection. Adding the type and its copy is the work — no new
+notification machinery, and no read or dismissal state.
 
 **Presentation gap — the chapter date.** Career renders the act but not when it
 began. The date is available from the event; nothing new is stored.
@@ -501,8 +594,8 @@ should describe the world's relationship to the artist. Copy change to an existi
 constant, affecting `UNDERGROUND` and `COME_UP` only.
 
 **Read-model gap — Home.** `CareerHome` carries neither the act nor the
-transition, and the Home page does not load notifications at all. The one-time
-line needs two facts: the career's act (already on `CareerRow`, which Home's
+transition, and the Home page does not load notifications at all. The
+day-of-transition line needs two facts: the career's act (already on `CareerRow`, which Home's
 caller has) and the transition event's `occurredAt` compared against
 `currentGameDate`.
 
@@ -523,8 +616,8 @@ here; it belongs to an M8.5 follow-up, not to this milestone.
 2. **The notification** — add to `NOTIFIED`, with copy in world-fact register.
 3. **Career**: the chapter date, and the previous chapter as history.
 4. **`ACT_LINES` copy**, `UNDERGROUND` and `COME_UP` only.
-5. **Home**: the one-time line, derived from the act and the transition date
-   against the career's current in-world date.
+5. **Home**: the day-of-transition line, derived from the act and the
+   transition event's game date against the career's current game date.
 6. **Verify Projects** needs nothing. Do not touch it if it does not.
 7. **The leakage test**, as string assertions over every player surface, for a
    career that has come up and for Golden F.
@@ -539,9 +632,11 @@ here; it belongs to an M8.5 follow-up, not to this milestone.
    repeatedly, in any order, changes nothing.
 2. **A career that qualifies transitions on the day advance** and is notified
    rather than discovering it.
-3. **The one-time Home treatment appears only while the transition is the
-   current in-world day**, and never after the clock moves. Refreshing within
-   that day shows the same Home, because nothing has changed.
+3. **The Home line appears only while the transition's game date is the career's
+   current game date**, and never after the clock moves. Refreshing within that
+   day shows the same Home, because nothing has changed, and consumes nothing.
+   A player who does not open Home that day never sees it, and loses no
+   information.
 4. **Career names the chapter and the date it began**, and shows the previous
    chapter without rewriting it.
 5. **World carries a line a person in that world could say**, not a row label.
