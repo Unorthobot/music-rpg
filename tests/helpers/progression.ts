@@ -10,7 +10,8 @@ import {
   selectProducerProposal, setCreativeDirection, setReleaseStrategy, startCreativeSession,
 } from "@music-rpg/domain";
 import { decidePhase } from "@music-rpg/simulation";
-import { unwrap, type CreativeDirection, type RecognitionDomain } from "@music-rpg/shared";
+import { unwrap, type CreativeDirection } from "@music-rpg/shared";
+import type { RecognitionDomain } from "@music-rpg/shared/progression";
 import type { TestContext } from "./context";
 import { makePublishedRelease } from "./release";
 

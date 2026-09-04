@@ -5,7 +5,8 @@ import {
 } from "@music-rpg/database";
 import { advanceCareerDay, loadProgressionObservation } from "@music-rpg/domain";
 import { ACT_REACH, PHASE_BLOCKER_LABELS } from "@music-rpg/simulation";
-import { RECOGNITION_DOMAINS, availableFormats } from "@music-rpg/shared";
+import { availableFormats } from "@music-rpg/shared";
+import { RECOGNITION_DOMAINS } from "@music-rpg/shared/progression";
 import { createTestContext, createTestUser, type TestContext } from "../helpers/context";
 import { decisionOf, domainsOf, liveGolden } from "../helpers/progression";
 
@@ -321,8 +322,13 @@ describe("7 · descriptors explain, domains qualify", () => {
      * explaining the very property being tested.
      */
     const shared = await import("@music-rpg/shared");
+    const progression = await import("@music-rpg/shared/progression");
     const simulation = await import("@music-rpg/simulation");
-    const exported = [...Object.keys(shared), ...Object.keys(simulation)];
+    const exported = [
+      ...Object.keys(shared),
+      ...Object.keys(progression),
+      ...Object.keys(simulation),
+    ];
 
     for (const gone of [
       "EVIDENCE_FAMILIES", "ANCHOR_FAMILIES", "COME_UP_REQUIRED_FAMILIES",
@@ -330,10 +336,15 @@ describe("7 · descriptors explain, domains qualify", () => {
     ]) {
       expect(exported, `${gone} came back`).not.toContain(gone);
     }
-    /* And the vocabulary that replaced them is present. */
+    /*
+     * And the vocabulary that replaced them is present — in the progression
+     * module, which is where it now lives. It was read off the general barrel
+     * until M9's closeout moved the recipe behind `@music-rpg/shared/progression`
+     * so player-facing code could not reach it by accident.
+     */
     expect(exported).toContain("RECOGNITION_DOMAINS");
     expect(exported).toContain("EVIDENCE_DESCRIPTORS");
-    expect(shared.PHASE_BLOCKERS).not.toContain("NOT_DURABLE_YET");
+    expect(progression.PHASE_BLOCKERS).not.toContain("NOT_DURABLE_YET");
   }, 300_000);
 });
 

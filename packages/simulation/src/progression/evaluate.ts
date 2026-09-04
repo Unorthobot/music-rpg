@@ -1,3 +1,4 @@
+import { roundTo } from "@music-rpg/shared";
 import {
   COME_UP_REQUIRED_DOMAINS,
   COME_UP_REQUIRES_NON_RECEPTION,
@@ -6,7 +7,6 @@ import {
   PROGRESSION_EVALUATOR_VERSION,
   RECOGNITION_DOMAINS,
   SCENE_WITNESSED_KINDS_REQUIRED,
-  roundTo,
   type DomainCheck,
   type EvidenceCheck,
   type EvidenceDescriptor,
@@ -14,7 +14,7 @@ import {
   type EvidenceResult,
   type PersonReturnFacts,
   type ReleaseReceptionFacts,
-} from "@music-rpg/shared";
+} from "@music-rpg/shared/progression";
 import { INVITE_MIN_RESPECT } from "../opportunities/constants";
 import { sceneStanding } from "../opportunities/standing";
 import {

@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { gameEvents, type DbClient, type GameEventRow } from "@music-rpg/database";
-import { ids } from "@music-rpg/shared";
+import { PUBLIC_EVENT_VISIBILITIES, ids } from "@music-rpg/shared";
 import type { RecordEventInput } from "./types";
 
 /**
@@ -84,7 +84,10 @@ export async function listCareerEvents(
  * thing to happen late in a career — the act changing — could never appear.
  *
  * A career's own private history is not the scene's business, so the visibility
- * test belongs in the `where` rather than in the caller.
+ * test belongs in the `where` rather than in the caller — and the tiers come
+ * from `PUBLIC_EVENT_VISIBILITIES` rather than from a list written out here, so
+ * a new tier is a decision made once instead of a query that quietly does not
+ * know about it.
  */
 export async function listPublicCareerEvents(
   db: DbClient,
@@ -97,7 +100,7 @@ export async function listPublicCareerEvents(
     .where(
       and(
         eq(gameEvents.careerId, careerId),
-        inArray(gameEvents.visibility, ["LOCAL_PUBLIC", "GLOBAL_PUBLIC"]),
+        inArray(gameEvents.visibility, [...PUBLIC_EVENT_VISIBILITIES]),
       ),
     )
     .orderBy(desc(gameEvents.sequence))

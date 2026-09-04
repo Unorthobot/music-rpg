@@ -2,12 +2,20 @@ import { eq } from "drizzle-orm";
 import { careerProgressionObservations, careers, type Database } from "@music-rpg/database";
 import { loadEvidenceFacts, loadProgressionObservation } from "@music-rpg/domain";
 import { PHASE_BLOCKER_LABELS, decidePhase } from "@music-rpg/simulation";
+/*
+ * The recipe, reached explicitly.
+ *
+ * `@music-rpg/shared/progression` is not in the general barrel, so importing it
+ * is a statement rather than an accident. World Control is one of the four
+ * places entitled to make it: an operator asking why a career is in the act it
+ * is in needs the domains, the descriptors and the qualifier by name.
+ */
 import {
   DOMAIN_EXPLAINED_BY,
   DOMAIN_QUALIFIER,
   RECOGNITION_DOMAINS,
   type EvidenceCheck,
-} from "@music-rpg/shared";
+} from "@music-rpg/shared/progression";
 import { Label, Surface } from "@music-rpg/ui";
 
 /**

@@ -14,15 +14,24 @@ import {
   getCatalogue,
   getNotifications,
 } from "@music-rpg/domain";
-import { listPublicCareerEvents } from "@music-rpg/events";
+import {
+  GameEventType,
+  listCareerEvents,
+  listPublicCareerEvents,
+  recordEvent,
+} from "@music-rpg/events";
 import {
   CHAPTER_LABELS,
   CHAPTER_LINES,
   COME_UP_PLAYER_LINE,
   COME_UP_WORLD_LINE,
+  EVENT_VISIBILITIES,
+  PUBLIC_EVENT_VISIBILITIES,
+  availableFormats,
 } from "@music-rpg/shared";
 import { createTestContext, createTestUser, type TestContext } from "../helpers/context";
 import { liveGolden, type GoldenMode } from "../helpers/progression";
+import { makePublishedRelease } from "../helpers/release";
 
 /**
  * M9, as the player experiences it.
@@ -216,6 +225,25 @@ describe("2 · a career that has not come up is told nothing", () => {
       const home = await getCareerHome(T.handle.db, career);
       expect(home.chapter).toEqual(chapter);
       expect(home.chapter.beganToday, "Home showed a transition treatment").toBe(false);
+
+      /*
+       * And the chapter it *is* in describes a relationship rather than setting
+       * a task.
+       *
+       * The line these replaced was "Get noticed." — an objective, handed to a
+       * career that had not earned anything, on the one screen that must never
+       * imply there is something to earn. A career reading "nobody knows the
+       * name yet" is being told where it stands; a career reading "get noticed"
+       * has been given a quest, and F is the career that would then go and farm
+       * it.
+       */
+      expect(chapter.line).toBe("Nobody knows the name yet.");
+      for (const imperative of [
+        /^get /i, /^turn /i, /^build /i, /^make /i, /^play /i, /^find /i,
+        /unlock/i, /you need/i, /almost/i, /keep going/i,
+      ]) {
+        expect(chapter.line, "the chapter set the player a task").not.toMatch(imperative);
+      }
 
       const notifications = await getNotifications(T.handle.db, career, 50);
       expect(notifications.some((entry) => entry.line === COME_UP_PLAYER_LINE)).toBe(false);
@@ -416,6 +444,116 @@ describe("4 · Home's day-of treatment", () => {
     /* The date itself does not move. */
     expect(after.beganOn).toEqual(events[0]!.occurredAt);
   }, 300_000);
+
+  /**
+   * The positive branch, on the actual day.
+   *
+   * The test above asserts the invariant as a definition — `beganToday` equals
+   * "is the event's date the career's date" — which is right, but a forty-day
+   * history is never sitting on its transition day, so it only ever exercised
+   * `false === false`. This stops the career on the day and asserts the line is
+   * genuinely there.
+   */
+  it("shows on the transition day, survives being read, and is gone the next", async () => {
+    const { transitionDay } = await history("B");
+    expect(transitionDay).not.toBeNull();
+
+    const user = await createTestUser(T, "On the day");
+    const run = await liveGolden(T, user, "B", transitionDay!);
+    const career = await rowOf(run.careerId);
+    const [event] = await transitionEvent(run.careerId);
+
+    /* The career's clock is on the day the act changed. */
+    expect(career.currentGameDate.toISOString().slice(0, 10)).toBe(
+      event!.occurredAt.toISOString().slice(0, 10),
+    );
+
+    /* So Home carries the line. */
+    expect((await getCareerHome(T.handle.db, career)).chapter.beganToday).toBe(true);
+
+    /*
+     * Reading it repeatedly on that day neither ends it nor writes anything.
+     * The career row, the observation and the event count are identical after
+     * five reads, so "the player looked" is not a fact this game records.
+     */
+    const before = {
+      career: await rowOf(run.careerId),
+      events: (await listCareerEvents(T.handle.db, run.careerId, 1000)).length,
+      observation: (
+        await T.handle.db
+          .select()
+          .from(careerProgressionObservations)
+          .where(eq(careerProgressionObservations.careerId, run.careerId))
+      )[0],
+    };
+
+    for (let i = 0; i < 5; i += 1) {
+      expect((await getCareerHome(T.handle.db, career)).chapter.beganToday).toBe(true);
+    }
+
+    expect(await rowOf(run.careerId)).toEqual(before.career);
+    expect((await listCareerEvents(T.handle.db, run.careerId, 1000)).length).toBe(before.events);
+    expect(
+      (
+        await T.handle.db
+          .select()
+          .from(careerProgressionObservations)
+          .where(eq(careerProgressionObservations.careerId, run.careerId))
+      )[0],
+    ).toEqual(before.observation);
+
+    /*
+     * A player who never opened Home that day loses the line and nothing else.
+     * The clock moved; the chapter and its date did not.
+     */
+    await advanceCareerDay(T.ctx, { careerId: run.careerId, userId: user.id, seed: "golden" });
+
+    const next = await getCareerChapter(T.handle.db, await rowOf(run.careerId));
+    expect(next.beganToday).toBe(false);
+    expect(next.label).toBe(CHAPTER_LABELS.COME_UP);
+    expect(next.beganOn).toEqual(event!.occurredAt);
+  }, 300_000);
+
+  /**
+   * And there is nowhere to record that somebody looked.
+   *
+   * Asserted against the schema rather than against behaviour: the surest proof
+   * that a screen cannot be consumed by viewing is that no column exists to
+   * write when it is.
+   */
+  it("has no column for having been seen in anything the chapter reads", async () => {
+    const { readFileSync } = await import("node:fs");
+
+    /*
+     * The three tables the chapter is derived from, and only those.
+     *
+     * Two `read_at` columns exist elsewhere in the schema and both are
+     * legitimate: `npc_messages` (a player really does read a message) and M3's
+     * `notifications` table, which the generation-job flow writes and which the
+     * M9 projection has nothing to do with. Asserting "no read state anywhere"
+     * would be a claim about the whole game that is not true and was never the
+     * point. The claim is that *this* fact cannot be consumed by looking.
+     */
+    for (const file of ["career.ts", "progression.ts", "events.ts"]) {
+      const source = readFileSync(`packages/database/src/schema/${file}`, "utf8");
+      for (const forbidden of [/"seen_at"/, /"read_at"/, /"dismissed_at"/, /"acknowledged_at"/]) {
+        expect(source, `${file} records that somebody looked`).not.toMatch(forbidden);
+      }
+    }
+
+    /*
+     * And the notification the player is told through is derived from the log,
+     * not stored in the table that has a `read_at` on it.
+     */
+    const projection = readFileSync("packages/domain/src/queries/notifications.ts", "utf8");
+    const imports = [...projection.matchAll(/import[\s\S]*?from\s+"[^"]+";/g)]
+      .map((match) => match[0])
+      .join("\n");
+    expect(imports).toMatch(/gameEvents/);
+    expect(imports, "the M9 notification reads M3's stored table").not.toMatch(
+      /\bnotifications\b/,
+    );
+  });
 });
 
 /* --- 5 · reading changes nothing ------------------------------------------ */
@@ -710,4 +848,325 @@ describe("8 · notification eligibility", () => {
     expect((await getCareerChapter(T.handle.db, career)).label).toBe(CHAPTER_LABELS.COME_UP);
     expect(career.careerAct).toBe("COME_UP");
   }, 300_000);
+});
+
+/* --- 9 · the public feed under volume ------------------------------------- */
+
+describe("9 · what the scene can see, and what it cannot", () => {
+  /**
+   * The defect this section exists for, reproduced deliberately.
+   *
+   * `/world` used to read a window of a career's events and *then* keep the
+   * public ones. That is only correct while public events are dense. Reception
+   * and the opportunity director write private events constantly, so the window
+   * filled with them and the feed went blind — permanently, because the old
+   * query took the window from the oldest end.
+   *
+   * Here the crowding is manufactured rather than waited for: far more private
+   * events than the feed's whole capacity, written *after* the public facts, so
+   * a query that filters after limiting cannot pass.
+   */
+  it("keeps public facts visible behind a wall of private events", async () => {
+    const user = await createTestUser(T, "Crowded");
+    const { careerId } = await makePublishedRelease(T, user, "STILL HERE");
+    const career = await rowOf(careerId);
+
+    /*
+     * Two public facts of our own, so we know exactly what must survive.
+     *
+     * Real event types throughout: `recordEvent` will not accept an invented
+     * one, and that is the vocabulary doing its job. Visibility is a parameter,
+     * so the shape under test is reproduced without widening the enum for a
+     * test's convenience.
+     *
+     * Tracked by the id `recordEvent` returns rather than by type: this career
+     * has a real history, and it already contains events of these types. Only
+     * the row is unambiguous.
+     */
+    const markerIds: string[] = [];
+    for (const marker of [GameEventType.CrewJoined, GameEventType.TrackRenamed]) {
+      const written = await recordEvent(T.handle.db, {
+        worldId: career.worldId,
+        careerId,
+        eventType: marker,
+        actorType: "CAREER",
+        actorId: careerId,
+        visibility: "LOCAL_PUBLIC",
+        importance: 50,
+        idempotencyKey: `test:${careerId}:${marker}`,
+      });
+      markerIds.push(written.id);
+    }
+
+    /*
+     * Then sixty private events on top — three times the feed's capacity, and
+     * every one of them newer than the public facts. This is what a week of
+     * reception looks like to the query, compressed.
+     */
+    const noiseIds: string[] = [];
+    for (let n = 0; n < 60; n += 1) {
+      const written = await recordEvent(T.handle.db, {
+        worldId: career.worldId,
+        careerId,
+        eventType: GameEventType.ReceptionExposureOccurred,
+        actorType: "CAREER",
+        actorId: careerId,
+        visibility: "PRIVATE",
+        importance: 5,
+        idempotencyKey: `test:${careerId}:noise:${n}`,
+      });
+      noiseIds.push(written.id);
+    }
+
+    const feed = await listPublicCareerEvents(T.handle.db, careerId, 20);
+
+    /* The public facts are still there, under sixty newer private ones. */
+    expect(feed.map((event) => event.id)).toEqual(expect.arrayContaining(markerIds));
+
+    /* And nothing private came with them. */
+    expect(feed.every((event) => PUBLIC_EVENT_VISIBILITIES.includes(event.visibility as never))).toBe(
+      true,
+    );
+    expect(feed.some((event) => event.id === noiseIds[0])).toBe(false);
+    expect(feed.some((event) => noiseIds.includes(event.id))).toBe(false);
+  }, 300_000);
+
+  /**
+   * The tiers between private and public are not public.
+   *
+   * `CREW` and `INDUSTRY` are audience-scoped: a room hearing something is not
+   * the city hearing it. A feed anybody can open must carry neither, and the
+   * allow-list is asserted against the enum so a new tier cannot be quietly
+   * treated as public by a query that predates it.
+   */
+  it("treats only the two public tiers as public", async () => {
+    const user = await createTestUser(T, "Tiers");
+    const { careerId } = await makePublishedRelease(T, user, "HALF HEARD");
+    const career = await rowOf(careerId);
+
+    /*
+     * One event per tier, tracked by id.
+     *
+     * The event *type* proves nothing here — this career's real history already
+     * contains a `producer.selected`, so asserting that the type is absent from
+     * the feed fails against a row nobody wrote for this test. What is being
+     * claimed is about these five rows.
+     */
+    const written: Record<string, string> = {};
+    for (const visibility of EVENT_VISIBILITIES) {
+      const row = await recordEvent(T.handle.db, {
+        worldId: career.worldId,
+        careerId,
+        eventType: GameEventType.RelationshipChanged,
+        actorType: "CAREER",
+        actorId: careerId,
+        visibility,
+        importance: 20,
+        idempotencyKey: `test:${careerId}:tier:${visibility}`,
+      });
+      written[visibility] = row.id;
+    }
+
+    const seen = (await listPublicCareerEvents(T.handle.db, careerId, 100)).map(
+      (event) => event.id,
+    );
+
+    /* The two public tiers came through. */
+    expect(seen).toContain(written.LOCAL_PUBLIC);
+    expect(seen).toContain(written.GLOBAL_PUBLIC);
+
+    /* The three that are not public did not — CREW and INDUSTRY included. */
+    expect(seen, "a private event reached the scene").not.toContain(written.PRIVATE);
+    expect(seen, "a crew-scoped event reached the scene").not.toContain(written.CREW);
+    expect(seen, "an industry-scoped event reached the scene").not.toContain(written.INDUSTRY);
+
+    /* The allow-list is the enum's public tail, not a list somebody typed. */
+    expect([...PUBLIC_EVENT_VISIBILITIES]).toEqual(["LOCAL_PUBLIC", "GLOBAL_PUBLIC"]);
+    for (const tier of PUBLIC_EVENT_VISIBILITIES) {
+      expect(EVENT_VISIBILITIES).toContain(tier);
+    }
+  }, 300_000);
+
+  /**
+   * World Control still reads a log, not a feed.
+   *
+   * The inspector wants a career forwards from the beginning, including
+   * everything private. Nothing about the feed's fix may have narrowed it.
+   */
+  it("leaves the inspector's log oldest-first and unfiltered", async () => {
+    const user = await createTestUser(T, "Inspector");
+    const { careerId } = await makePublishedRelease(T, user, "ON THE RECORD");
+
+    const log = await listCareerEvents(T.handle.db, careerId, 200);
+
+    expect(log.length).toBeGreaterThan(0);
+    const sequences = log.map((event) => Number(event.sequence));
+    expect(sequences, "the log is not oldest-first").toEqual([...sequences].sort((a, b) => a - b));
+    expect(log.some((event) => event.visibility === "PRIVATE"), "the log lost private events").toBe(
+      true,
+    );
+  }, 300_000);
+});
+
+/* --- 10 · Projects reads canonical availability ---------------------------- */
+
+describe("10 · what a career may release", () => {
+  /**
+   * The screen partitions on `available`, which is the availability result
+   * itself. It used to split on `minimumTracks === 1`, which agreed with the
+   * truth only while nobody could leave The Underground.
+   *
+   * These are the four states that separate the two rules. Asked of the
+   * canonical function, because that is what the screen now renders.
+   */
+  const ep = (act: "UNDERGROUND" | "COME_UP", catalogueSize: number) =>
+    availableFormats({ careerAct: act, catalogueSize }).find((f) => f.format === "EP")!;
+
+  it("blocks an EP in The Underground for the career-stage reason, however many tracks", () => {
+    const row = ep("UNDERGROUND", 12);
+    expect(row.available).toBe(false);
+    expect(row.lockedReason).toBe("Not at this stage of your career.");
+  });
+
+  it("blocks an EP in The Come Up for the catalogue reason", () => {
+    const row = ep("COME_UP", 2);
+    expect(row.available).toBe(false);
+    expect(row.lockedReason).toBe("You need at least 4 tracks.");
+  });
+
+  it("opens an EP in The Come Up once the catalogue carries it", () => {
+    const row = ep("COME_UP", 4);
+    expect(row.available).toBe(true);
+    expect(row.lockedReason).toBeNull();
+  });
+
+  it("keeps an album shut for its own requirement, not the act's", () => {
+    const formats = availableFormats({ careerAct: "COME_UP", catalogueSize: 4 });
+    const album = formats.find((f) => f.format === "ALBUM")!;
+
+    expect(album.available).toBe(false);
+    expect(album.lockedReason).toBe("You need at least 8 tracks.");
+
+    /* Two formats, one act, two different answers — which is the whole point. */
+    expect(formats.find((f) => f.format === "EP")!.available).toBe(true);
+  });
+
+  /**
+   * And the screen asks the canonical question rather than a proxy for it.
+   *
+   * Asserted against the source, because the failure mode is a branch that
+   * happens to agree today: `minimumTracks === 1`, a format name, or the career
+   * act read directly would each reproduce the bug this replaced.
+   */
+  it("leaves the screen no way to decide availability for itself", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("apps/web/src/app/(app)/catalogue/projects/page.tsx", "utf8");
+
+    /* The partition, and only this partition. */
+    expect(source).toMatch(/filter\(\(format\) => format\.available\)/);
+    expect(source).toMatch(/filter\(\(format\) => !format\.available\)/);
+
+    /*
+     * Nothing else may decide it. Comments are stripped first: this file
+     * explains the old rule in prose, and the explanation must not fail the
+     * test it exists to justify.
+     */
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");
+    expect(code).not.toMatch(/minimumTracks\s*===/);
+    expect(code).not.toMatch(/format\.format\s*===/);
+    expect(code).not.toMatch(/careerAct\s*===/);
+    /* And the reason is the one the rules produced, never restated here. */
+    expect(code).not.toMatch(/Needs \$\{/);
+    expect(code).toMatch(/format\.lockedReason/);
+  });
+});
+
+/* --- 11 · the recipe is not reachable from a player surface ---------------- */
+
+describe("11 · the evaluator's recipe stays behind its own door", () => {
+  /**
+   * The structural half of the boundary.
+   *
+   * `ChapterView` stops a screen *asking* the question — it carries no domain,
+   * count or blocker, so `decision.evidence.satisfiedDomains` does not compile
+   * against one. That is a good boundary and it was the only one: the recipe
+   * itself sat in the general `@music-rpg/shared` barrel, so any page could
+   * have imported `COME_UP_REQUIRED_DOMAINS` by autocomplete and nothing would
+   * have complained.
+   *
+   * It now lives at `@music-rpg/shared/progression`, which nothing re-exports.
+   * The definitions did not move file and were not copied; what changed is that
+   * reaching them is an explicit act.
+   */
+  const RECIPE = [
+    "PROGRESSION_EVALUATOR_VERSION",
+    "EVIDENCE_DESCRIPTORS",
+    "RECOGNITION_DOMAINS",
+    "DOMAIN_QUALIFIER",
+    "DOMAIN_EXPLAINED_BY",
+    "COME_UP_REQUIRED_DOMAINS",
+    "COME_UP_REQUIRES_NON_RECEPTION",
+    "SCENE_WITNESSED_EVENT_TYPES",
+    "SCENE_WITNESSED_KINDS_REQUIRED",
+    "PHASE_BLOCKERS",
+  ];
+
+  it("keeps the recipe out of the barrel every screen imports", async () => {
+    const shared = await import("@music-rpg/shared");
+    const barrel = Object.keys(shared);
+
+    for (const name of RECIPE) {
+      expect(barrel, `${name} is reachable from @music-rpg/shared`).not.toContain(name);
+    }
+
+    /* One canonical definition, still exported where it belongs. */
+    const progression = await import("@music-rpg/shared/progression");
+    for (const name of RECIPE) {
+      expect(Object.keys(progression), `${name} lost its home`).toContain(name);
+    }
+
+    /* And the chapter — the one progression fact a player may know — stays. */
+    expect(barrel).toContain("CHAPTER_LABELS");
+    expect(barrel).toContain("COME_UP_PLAYER_LINE");
+  });
+
+  /**
+   * And no player-facing file walks through the door on purpose either.
+   *
+   * Scanned over the app's player routes. World Control is excluded by name
+   * because inspecting progression is the entire reason it exists — the test
+   * asserts a boundary, not the absence of the data.
+   */
+  it("is imported by no player-facing route", async () => {
+    const { readdirSync, readFileSync, statSync } = await import("node:fs");
+    const { join } = await import("node:path");
+
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((entry) => {
+        const path = join(dir, entry);
+        if (statSync(path).isDirectory()) return walk(path);
+        return path.endsWith(".ts") || path.endsWith(".tsx") ? [path] : [];
+      });
+
+    const playerFiles = walk("apps/web/src/app").filter(
+      (path) => !path.includes("world-control"),
+    );
+    expect(playerFiles.length).toBeGreaterThan(20);
+
+    for (const path of playerFiles) {
+      const source = readFileSync(path, "utf8");
+
+      expect(source, `${path} imports the recipe`).not.toMatch(
+        /from "@music-rpg\/shared\/progression"/,
+      );
+
+      /* And nothing player-facing calls the evaluator or its loaders. */
+      const imports = [...source.matchAll(/import[\s\S]*?from\s+"[^"]+";/g)]
+        .map((match) => match[0])
+        .join("\n");
+      expect(imports, `${path} imports the evaluator`).not.toMatch(
+        /\b(decidePhase|evaluateEvidence|loadEvidenceFacts|loadProgressionObservation)\b/,
+      );
+    }
+  });
 });

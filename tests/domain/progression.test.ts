@@ -4,7 +4,7 @@ import {
   receptionTicks, releasePerformance, eq,
 } from "@music-rpg/database";
 import { advanceCareerDay, loadProgressionObservation } from "@music-rpg/domain";
-import { RECOGNITION_DOMAINS } from "@music-rpg/shared";
+import { RECOGNITION_DOMAINS } from "@music-rpg/shared/progression";
 import { createTestContext, createTestUser, type TestContext } from "../helpers/context";
 import { decisionOf, domainsOf, liveGolden } from "../helpers/progression";
 

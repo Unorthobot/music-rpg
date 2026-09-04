@@ -19,20 +19,22 @@ import {
 import { GameEventType, recordEvent } from "@music-rpg/events";
 import { decidePhase } from "@music-rpg/simulation";
 import {
-  PROGRESSION_EVALUATOR_VERSION,
-  SCENE_WITNESSED_EVENT_TYPES,
   ok,
   type CohortStandingFacts,
-  type EvidenceFacts,
   type MomentKind,
+  type Result,
+} from "@music-rpg/shared";
+import {
+  PROGRESSION_EVALUATOR_VERSION,
+  SCENE_WITNESSED_EVENT_TYPES,
+  type EvidenceFacts,
   type PersonReturnFacts,
   type PhaseDecision,
   type ProgressionObservation,
   type ReleaseReceptionFacts,
-  type Result,
   type SceneStandardFacts,
   type WitnessedFacts,
-} from "@music-rpg/shared";
+} from "@music-rpg/shared/progression";
 import type { CommandContext } from "../context";
 import type { DomainError } from "../errors";
 import { loadOwnedCareer } from "../internal/career";

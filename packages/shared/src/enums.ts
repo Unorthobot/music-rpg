@@ -57,6 +57,18 @@ export const EVENT_VISIBILITIES = [
 ] as const;
 export type EventVisibility = (typeof EVENT_VISIBILITIES)[number];
 
+/**
+ * The tiers a stranger may see, and the only ones a public feed may read.
+ *
+ * Named here rather than written into each query, so there is one answer to
+ * *what does the scene get to know* and adding a tier is a decision made in one
+ * place. `PRIVATE` is the career's own business; `CREW` and `INDUSTRY` are
+ * audience-scoped rather than public — a room hearing something is not the city
+ * hearing it — so neither belongs in a feed anybody can open.
+ */
+export const PUBLIC_EVENT_VISIBILITIES = ["LOCAL_PUBLIC", "GLOBAL_PUBLIC"] as const satisfies
+  readonly EventVisibility[];
+
 export const EVENT_ACTOR_TYPES = [
   "SYSTEM",
   "USER",

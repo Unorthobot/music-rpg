@@ -10,7 +10,7 @@ import {
   type PhaseDecision,
   type ProgressionObservation,
   type RecognitionDomain,
-} from "@music-rpg/shared";
+} from "@music-rpg/shared/progression";
 import { evaluateEvidence } from "./evaluate";
 
 /**
