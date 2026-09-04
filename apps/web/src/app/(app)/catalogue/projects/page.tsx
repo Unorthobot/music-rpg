@@ -19,8 +19,20 @@ export default async function ProjectsPage() {
   const db = await getAppDb();
   const catalogue = await getCatalogue(db, view.career);
 
-  const singles = catalogue.formats.filter((format) => format.minimumTracks === 1);
-  const bodies = catalogue.formats.filter((format) => format.minimumTracks > 1);
+  /*
+   * Partitioned by whether the career can actually release the format, which is
+   * the question the two headings ask.
+   *
+   * It used to split on `minimumTracks === 1`, and that was indistinguishable
+   * from this while no career could leave The Underground: every multi-track
+   * format was act-locked for everybody, so "Not yet" was true by accident. The
+   * first career to come up with four tracks would have found its EP listed
+   * under **Not yet** with a tag reading **Open** — the heading contradicting
+   * the tag beside it, on the one screen whose whole job is an honest account of
+   * what is and is not open.
+   */
+  const open = catalogue.formats.filter((format) => format.available);
+  const locked = catalogue.formats.filter((format) => !format.available);
 
   return (
     <AppShell
@@ -35,49 +47,62 @@ export default async function ProjectsPage() {
         thing — and the interface opens them when your catalogue and your career can carry them.
       </p>
 
-      <section className="flex flex-col gap-3">
-        <Label>Available now</Label>
-        <ul className="flex flex-col gap-2">
-          {singles.map((format) => (
-            <li key={format.format}>
-              <Surface level={1} padded="sm" className="flex items-start justify-between gap-4">
-                <span className="flex flex-col gap-1">
-                  <span className="text-base text-ink">{format.label}</span>
-                  <span className="text-sm text-ink-muted">{format.detail}</span>
-                </span>
-                <Tag tone={format.available ? "ember" : "neutral"}>
-                  {format.available ? "Open" : "Locked"}
-                </Tag>
-              </Surface>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-3">
-        <Label>Not yet</Label>
-        <ul className="flex flex-col gap-2">
-          {bodies.map((format) => (
-            <li key={format.format}>
-              <Surface
-                level={1}
-                padded="sm"
-                className="flex items-start justify-between gap-4 opacity-80"
-                aria-disabled={!format.available}
-              >
-                <span className="flex flex-col gap-1">
-                  <span className="text-base text-ink">{format.label}</span>
-                  <span className="text-sm text-ink-muted">{format.detail}</span>
-                  <span className="text-xs text-ink-subtle">
-                    {format.lockedReason ?? `Needs ${format.minimumTracks} tracks.`}
+      {/*
+        Both sections are conditional, because either can legitimately be empty:
+        a career with no finished tracks can release nothing, and a career deep
+        enough into its catalogue can release everything. A heading over an empty
+        list would announce a category the player has failed to fill.
+      */}
+      {open.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <Label>Available now</Label>
+          <ul className="flex flex-col gap-2">
+            {open.map((format) => (
+              <li key={format.format}>
+                <Surface level={1} padded="sm" className="flex items-start justify-between gap-4">
+                  <span className="flex flex-col gap-1">
+                    <span className="text-base text-ink">{format.label}</span>
+                    <span className="text-sm text-ink-muted">{format.detail}</span>
                   </span>
-                </span>
-                <Tag>{format.available ? "Open" : "Locked"}</Tag>
-              </Surface>
-            </li>
-          ))}
-        </ul>
-      </section>
+                  <Tag tone="ember">Open</Tag>
+                </Surface>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {locked.length > 0 ? (
+        <section className="flex flex-col gap-3">
+          <Label>Not yet</Label>
+          <ul className="flex flex-col gap-2">
+            {locked.map((format) => (
+              <li key={format.format}>
+                <Surface
+                  level={1}
+                  padded="sm"
+                  className="flex items-start justify-between gap-4 opacity-80"
+                  aria-disabled
+                >
+                  <span className="flex flex-col gap-1">
+                    <span className="text-base text-ink">{format.label}</span>
+                    <span className="text-sm text-ink-muted">{format.detail}</span>
+                    {/*
+                      The reason, from the rules that produced it. Never a
+                      requirement this screen restated for itself — an unavailable
+                      format always carries one, and inventing a second phrasing
+                      here is how the tracks a player is told they need stops
+                      matching the number the command enforces.
+                    */}
+                    <span className="text-xs text-ink-subtle">{format.lockedReason}</span>
+                  </span>
+                  <Tag>Locked</Tag>
+                </Surface>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </AppShell>
   );
 }

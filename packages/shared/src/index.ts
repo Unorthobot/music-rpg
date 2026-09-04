@@ -17,3 +17,4 @@ export * from "./slug";
 export * from "./studio";
 export * from "./opportunity-view";
 export * from "./battle-view";
+export * from "./chapter-view";

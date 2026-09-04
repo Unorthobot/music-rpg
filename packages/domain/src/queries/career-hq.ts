@@ -18,10 +18,11 @@ import {
   type TransactionRow,
 } from "@music-rpg/database";
 import { gameEventLabels } from "@music-rpg/events";
-import type { OfferTable, PlayerBattle, PlayerOffer } from "@music-rpg/shared";
+import type { ChapterView, OfferTable, PlayerBattle, PlayerOffer } from "@music-rpg/shared";
 import type { CareerRow } from "@music-rpg/database";
 import { getOffersForCharacter, getOfferTable } from "./opportunity-view";
 import { getBattleAwaitingAngle } from "./battle-view";
+import { getCareerChapter } from "./chapter";
 
 /**
  * Career HQ read models.
@@ -95,6 +96,21 @@ export type CareerHome = {
    * the world has a slot they have failed to fill.
    */
   onTheTable: OfferTable;
+  /**
+   * Which chapter this career is in.
+   *
+   * One field on the projection Home already loads, rather than a second read
+   * model beside it. Home needs the chapter for one sentence on one day, and a
+   * `progression-view` built for that would be a place for domains and blockers
+   * to accumulate later — the boundary holds better when there is nowhere for
+   * them to go.
+   *
+   * `chapter.beganToday` is the whole of Home's day-of treatment. It comes from
+   * the career's clock rather than from anything the player has or has not
+   * looked at, so **rendering Home cannot change it**, and the same read a
+   * second later gives the same answer.
+   */
+  chapter: ChapterView;
 };
 
 async function countOf(query: Promise<{ value: number }[]>): Promise<number> {
@@ -211,6 +227,11 @@ export async function getCareerHome(db: Database, career: CareerRow): Promise<Ca
     activeSession,
     opportunity,
     onTheTable,
+    /*
+     * Read through the same function the Career screen uses, so the two screens
+     * cannot disagree about which chapter this is or when it started.
+     */
+    chapter: await getCareerChapter(db, career),
   };
 }
 

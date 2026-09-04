@@ -40,6 +40,7 @@ export * from "./queries/battle-view";
 export * from "./queries/opportunities";
 export * from "./queries/opportunity-view";
 export * from "./queries/career-story";
+export * from "./queries/chapter";
 export * from "./queries/notifications";
 export * from "./queries/relationships";
 export * from "./queries/relationship-view";

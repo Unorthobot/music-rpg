@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { characters, scenes, tracks } from "@music-rpg/database";
-import { gameEventLabels, listCareerEvents } from "@music-rpg/events";
+import { COME_UP_WORLD_LINE } from "@music-rpg/shared";
+import { gameEventLabels, listPublicCareerEvents } from "@music-rpg/events";
 import Link from "next/link";
 import { EmptyState, Label, Surface, Tag, WorldEventCard } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
@@ -10,6 +11,25 @@ import { ACT_LABELS, requireCareer } from "@/lib/career";
 export const metadata = { title: "World" };
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * What the scene saw, in the player's language.
+ *
+ * `gameEventLabels` is the inspector's register — *"Career entered The Come
+ * Up"*, which names the act as a state a career was moved into and is exactly
+ * right for World Control and wrong in front of a player. That table is
+ * deliberately left alone; this decides only what the **player-facing** feed
+ * says, and falls through to it for every event M9 did not rewrite.
+ *
+ * Overriding here rather than editing the label table keeps one register per
+ * audience instead of one shared register that has to serve both — the version
+ * an operator reads while debugging a transition must be allowed to stay
+ * mechanical.
+ */
+function worldLine(eventType: string): string {
+  if (eventType === "career.entered_come_up") return COME_UP_WORLD_LINE;
+  return gameEventLabels[eventType as keyof typeof gameEventLabels] ?? eventType;
+}
 
 /** How long a record has been out, in in-world days. Public, and no more. */
 function daysOutLabel(releasedAt: Date, now: Date): string {
@@ -63,10 +83,15 @@ export default async function WorldPage() {
     .where(and(eq(tracks.worldId, view.world.id), isNotNull(tracks.releasedAt)))
     .orderBy(desc(tracks.releasedAt))
     .limit(20);
-  const events = await listCareerEvents(db, view.career.id, 20);
-  const publicEvents = events
-    .filter((event) => event.visibility === "LOCAL_PUBLIC" || event.visibility === "GLOBAL_PUBLIC")
-    .reverse();
+  /*
+   * The most recent public things this career did, newest first.
+   *
+   * Filtered in the query rather than here. Reading twenty events and then
+   * keeping the public ones asks the database for a window that has nothing to
+   * do with the question — and since reception writes hundreds of private
+   * events a week, that window stopped containing a public event at all.
+   */
+  const publicEvents = await listPublicCareerEvents(db, view.career.id, 20);
 
   return (
     <AppShell
@@ -179,9 +204,7 @@ export default async function WorldPage() {
             {publicEvents.map((event) => (
               <li key={event.id}>
                 <WorldEventCard
-                  label={
-                    gameEventLabels[event.eventType as keyof typeof gameEventLabels] ?? event.eventType
-                  }
+                  label={worldLine(event.eventType)}
                   description={`${view.displayName} · ${view.world.name}`}
                   timestamp={new Date(event.occurredAt).toLocaleDateString("en-ZA", {
                     day: "numeric",

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { gameEvents, type DbClient, type GameEventRow } from "@music-rpg/database";
 import { ids } from "@music-rpg/shared";
 import type { RecordEventInput } from "./types";
@@ -65,6 +65,42 @@ export async function listCareerEvents(
     .from(gameEvents)
     .where(eq(gameEvents.careerId, careerId))
     .orderBy(gameEvents.sequence)
+    .limit(limit);
+}
+
+/**
+ * What the scene saw, newest first.
+ *
+ * Separate from `listCareerEvents` because a feed and a log want opposite ends
+ * of the same table. The inspector reads a career forwards from the beginning
+ * and is right to; a public feed wants the most recent things that were public.
+ *
+ * **Filtering and limiting have to happen in the same query**, and getting that
+ * wrong is why this exists. `/world` used to take the twenty *oldest* events of
+ * a career's whole life and filter those down to the public ones — so its feed
+ * was fixed at whatever happened during onboarding and never moved again. Once
+ * reception began writing hundreds of private events a week, the twenty-row
+ * window could not reach a public event at all, and the first genuinely public
+ * thing to happen late in a career — the act changing — could never appear.
+ *
+ * A career's own private history is not the scene's business, so the visibility
+ * test belongs in the `where` rather than in the caller.
+ */
+export async function listPublicCareerEvents(
+  db: DbClient,
+  careerId: string,
+  limit = 20,
+): Promise<GameEventRow[]> {
+  return db
+    .select()
+    .from(gameEvents)
+    .where(
+      and(
+        eq(gameEvents.careerId, careerId),
+        inArray(gameEvents.visibility, ["LOCAL_PUBLIC", "GLOBAL_PUBLIC"]),
+      ),
+    )
+    .orderBy(desc(gameEvents.sequence))
     .limit(limit);
 }
 

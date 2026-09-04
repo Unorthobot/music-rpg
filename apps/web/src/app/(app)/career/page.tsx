@@ -2,11 +2,11 @@ import Link from "next/link";
 import { formatCount, formatMoney } from "@music-rpg/shared";
 import { describeStat, soundAxisWords, topSkills } from "@music-rpg/simulation";
 import { SOUND_DIMENSIONS } from "@music-rpg/shared";
-import { getCareerPulse, getOfferStory } from "@music-rpg/domain";
+import { getCareerChapter, getCareerPulse, getOfferStory } from "@music-rpg/domain";
 import { CareerMetric, Label, PulseMetric, StatDescriptor, Surface, Tag } from "@music-rpg/ui";
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
-import { ACT_LABELS, ACT_LINES, requireCareer } from "@/lib/career";
+import { requireCareer } from "@/lib/career";
 
 export const metadata = { title: "Career" };
 
@@ -19,14 +19,14 @@ export const metadata = { title: "Career" };
  */
 export default async function CareerPage() {
   const { view } = await requireCareer();
-  const act = view.career.careerAct;
   const entity = view.entity;
   const sound = entity?.sound ?? null;
 
   const db = await getAppDb();
-  const [pulse, story] = await Promise.all([
+  const [pulse, story, chapter] = await Promise.all([
     getCareerPulse(db, view.career),
     getOfferStory(db, view.career),
+    getCareerChapter(db, view.career),
   ]);
 
   const levelOf = (key: "FAME" | "RESPECT" | "HEAT" | "LEGACY"): string =>
@@ -35,20 +35,37 @@ export default async function CareerPage() {
   return (
     <AppShell
       displayName={view.displayName}
-      act={ACT_LABELS[act]}
+      act={chapter.label}
       eyebrow="Career"
       title={view.displayName}
       context={
         <Surface level={1} padded="lg" className="flex flex-col gap-2">
-          <Label>Act</Label>
-          <p className="text-lg font-semibold tracking-display">{ACT_LABELS[act]}</p>
-          <p className="text-sm text-ink-muted">{ACT_LINES[act]}</p>
-          <p className="text-xs text-ink-subtle mt-2">
+          <Label>Chapter</Label>
+          <p className="text-lg font-semibold tracking-display">{chapter.label}</p>
+          <p className="text-sm text-ink-muted">{chapter.line}</p>
+
+          {/*
+            When this chapter began, and separately when the career did. They are
+            the same day for The Underground and different days afterwards, so
+            they are two lines rather than one relabelled one — "started" is not
+            a synonym for "entered", and a career that came up in March did not
+            begin in March.
+
+            `beganOn` is null in The Underground because no transition event
+            exists for the chapter a career starts in. That absence renders as
+            nothing rather than as the career's start date.
+          */}
+          {chapter.beganOn ? (
+            <p className="text-xs text-ink-subtle mt-2">
+              Began {new Date(chapter.beganOn).toLocaleDateString("en-ZA")}.
+            </p>
+          ) : null}
+          <p className="text-xs text-ink-subtle">
             Started {new Date(view.career.startedAt).toLocaleDateString("en-ZA")} in {view.world.name}.
           </p>
         </Surface>
       }
-      contextLabel="Act"
+      contextLabel="Chapter"
     >
       <section className="flex flex-col gap-3">
         <Label>Identity</Label>

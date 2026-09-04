@@ -5,7 +5,7 @@ import {
   type Database,
   type GameEventRow,
 } from "@music-rpg/database";
-import type { PlayerOffer } from "@music-rpg/shared";
+import { COME_UP_PLAYER_LINE, type PlayerOffer } from "@music-rpg/shared";
 import { getOfferHistory } from "./opportunity-view";
 import { getCareerBattleHistory } from "./battle-view";
 
@@ -48,6 +48,17 @@ export type Notification = {
  * What genuinely needs a notification is the one thing that happened **while
  * they were not looking**: the night came round, and three people decided
  * something. A player must be told rather than discovering it.
+ *
+ * `career.entered_come_up` is the M9 addition and qualifies on exactly that
+ * test — it is written by the day advance, so it happens between screens by
+ * construction and can be reached no other way.
+ *
+ * **It appears once because the event happens once**, not because anything here
+ * remembers having shown it. The transition is written under
+ * `career:<id>:entered_come_up` inside the same transaction that changes the
+ * act, and the act update is gated on the row still reading `UNDERGROUND`, so a
+ * second event cannot exist to be listed twice. That is the whole mechanism:
+ * this list stays derived, keeps no read-state, and consumes nothing.
  */
 const NOTIFIED = [
   "opportunity.created",
@@ -55,6 +66,7 @@ const NOTIFIED = [
   "opportunity.expired",
   "opportunity.withdrawn",
   "battle.resolved",
+  "career.entered_come_up",
 ] as const;
 
 export async function getNotifications(
@@ -85,6 +97,27 @@ export async function getNotifications(
   const notifications: Notification[] = [];
 
   for (const event of events) {
+    /*
+     * The chapter changed. Handled before the offer lookup because it has no
+     * target: nobody made this happen and there is nothing to answer — the world
+     * changed how it relates to this career, which is exactly the kind of thing
+     * a player cannot find out by doing anything.
+     *
+     * Points at Career, where the chapter and the day it began are. Not at Home,
+     * whose day-of treatment is gone by tomorrow, and not at World, which says
+     * what the scene saw rather than what happened to you.
+     */
+    if (event.eventType === "career.entered_come_up") {
+      notifications.push({
+        id: event.id,
+        line: COME_UP_PLAYER_LINE,
+        href: "/career",
+        occurredAt: event.occurredAt,
+        tone: "DONE",
+      });
+      continue;
+    }
+
     if (event.eventType === "battle.resolved") {
       const battle = event.targetId ? battleById.get(event.targetId) : undefined;
       if (!battle) continue;

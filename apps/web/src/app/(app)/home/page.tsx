@@ -23,7 +23,8 @@ import {
 import { AppShell } from "@/components/shell/app-shell";
 import { getAppDb } from "@/lib/db";
 import { createCommandContext } from "@/lib/command-context";
-import { ACT_LABELS, ACT_LINES, requireCareer } from "@/lib/career";
+import { COME_UP_PLAYER_LINE } from "@music-rpg/shared";
+import { requireCareer } from "@/lib/career";
 import { advanceDayAction } from "./actions";
 
 export const metadata = { title: "Home" };
@@ -90,9 +91,9 @@ export default async function HomePage({
   const context = (
     <>
       <Surface level={1} padded="lg" className="flex flex-col gap-2">
-        <Label>Act</Label>
-        <p className="text-lg font-semibold tracking-display">{ACT_LABELS[act]}</p>
-        <p className="text-sm text-ink-muted">{ACT_LINES[act]}</p>
+        <Label>Chapter</Label>
+        <p className="text-lg font-semibold tracking-display">{home.chapter.label}</p>
+        <p className="text-sm text-ink-muted">{home.chapter.line}</p>
         <p className="text-xs text-ink-subtle mt-2">
           {new Date(view.career.currentGameDate).toLocaleDateString("en-ZA", {
             day: "numeric",
@@ -173,8 +174,8 @@ export default async function HomePage({
   return (
     <AppShell
       displayName={view.displayName}
-      act={ACT_LABELS[act]}
-      eyebrow={ACT_LABELS[act]}
+      act={home.chapter.label}
+      eyebrow={home.chapter.label}
       title={view.displayName}
       context={context}
       contextLabel="Career context"
@@ -183,6 +184,41 @@ export default async function HomePage({
         <p role="alert" className="text-sm text-danger">
           {searchParams.error}
         </p>
+      ) : null}
+
+      {/*
+        The day a career changed chapter.
+
+        Contextual in the same sense "On the table" is: Home *gains* this on the
+        day and loses it afterwards. There is no empty state, because on every
+        other day of a career nothing happened to the chapter and a container
+        saying so would turn a rare event into a permanent slot the player is
+        failing to fill.
+
+        It leads because it is the largest thing that has ever happened to this
+        career, and it outranks reception for one day only.
+
+        **Nothing here is dismissible and nothing is marked read.** The condition
+        is `beganToday`, derived from the career's own clock — the treatment ends
+        because the world moved on, not because the player looked at it. So there
+        is no `seen_at` to write, opening Home does not consume anything, and a
+        player who opens Home four times on the day sees it four times, which is
+        correct: it is still that day.
+
+        Quiet on purpose. It states what changed and offers nothing to do about
+        it — no congratulation, no "what's next", and no route anywhere, because
+        the world changing how it relates to you is not a task you completed.
+      */}
+      {home.chapter.beganToday ? (
+        <section className="flex flex-col gap-3">
+          <Label>{home.chapter.label}</Label>
+          <Surface level={2} padded="lg" className="flex flex-col gap-2">
+            <p className="text-xl md:text-2xl font-semibold tracking-display text-balance">
+              {COME_UP_PLAYER_LINE}
+            </p>
+            <p className="text-sm text-ink-muted max-w-[60ch]">{home.chapter.line}</p>
+          </Surface>
+        </section>
       ) : null}
 
       {/*

@@ -669,6 +669,76 @@ here; it belongs to an M8.5 follow-up, not to this milestone.
 - **A `progression-view` read model**, unless step 5 proves one is needed.
 - **M10.**
 
+## What shipped, and where it differs
+
+The specification above is left as written. This section records the build
+against it.
+
+### Copy
+
+Three of the four proposed strings changed, and the count went from four to two.
+The claim is unchanged; the reasons are in `packages/shared/src/chapter-view.ts`
+beside each constant.
+
+| Surface | Proposed | Shipped |
+|---|---|---|
+| World feed | *"KXMO is starting to be a name people know."* | *"The name is starting to travel."* |
+| Notification | *"Your name is starting to travel."* | unchanged |
+| Home, on the day | *"People are starting to know the name."* | *"Your name is starting to travel."* |
+| Career chapter line | *"People are starting to know it."* | *"The name is starting to travel."* |
+
+**Why the world line drops the artist's name.** `WorldEventCard` already renders
+the artist and the world as the card's description, so naming them in the line
+says it twice. What is left is the change in standing, which is all the event
+supports.
+
+**Why "travel" replaced "people know it".** *Knowing* is a claim about a
+population — how many, and who. `career.entered_come_up` carries an artist, a
+world, a date and the fact that the act changed, and none of that is a count of
+people. *Travelling* is a claim about the name moving, which is exactly what the
+event says.
+
+**Why Home reuses the notification's line.** Two strings making one claim in the
+same register would drift the first time either was edited, and the second-person
+line is already right for Home. Four registers turned out to be two: the scene's
+and the player's.
+
+### A defect found by the E2E, in a surface M9 only inherited
+
+`/world` read the twenty **oldest** events of a career's life and filtered
+*those* down to the public ones, so its "What the scene has seen" feed was fixed
+at whatever happened during onboarding and never moved again. Since M5,
+reception writes hundreds of private events a week, so the window could not
+contain a public event at all — and the transition, the first genuinely public
+thing to happen late in a career, could never appear.
+
+Fixed by filtering and ordering in the query rather than after it:
+`listPublicCareerEvents` reads the most recent public events, newest first.
+`listCareerEvents` is unchanged, because World Control wants the opposite end of
+the same table — a log read forwards, not a feed.
+
+Covered headlessly at the size the page asks for, and end to end.
+
+### Where the guarantee actually lives
+
+Notifications is a **feed**: recency-ordered, capped, derived on every read. The
+transition leads it on the day it happens — `advanceCareerDay` evaluates
+progression last, so it carries the highest sequence of that day, including the
+offers the same advance created. It is not sorted to the top; it is simply the
+last thing that happened.
+
+Weeks later, in a career declining an offer most days, it has scrolled away. That
+is a feed working, and it costs the player nothing: Career keeps the chapter and
+its date for good, which is the whole reason a notification is allowed to be a
+pointer.
+
+### At phone width
+
+The chapter reads through the shell's contextual zone — a third column above
+`xl`, a labelled drawer below it. On a phone, Career's chapter is one tap behind
+a button named *Chapter*, which is the same disclosure every context panel in the
+app uses. Home's day-of line is in the page body and needs no tap.
+
 ## The line to keep pinned
 
 > **The player should never be able to work out what they had to do. They should
