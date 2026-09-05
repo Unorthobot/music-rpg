@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, isAbsolute, join, parse, resolve } from "node:path";
 import { sql } from "drizzle-orm";
 import type { ExtractTablesWithRelations } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT, PgTransaction } from "drizzle-orm/pg-core";
@@ -43,6 +45,69 @@ export type CreateDatabaseOptions = {
 };
 
 /**
+ * The workspace root, found by walking up from a starting directory.
+ *
+ * The marker is the npm workspaces root — the one `package.json` in the tree
+ * that declares `workspaces`. Every command in this repository is launched from
+ * somewhere inside it: `npm run dev` runs in `apps/web`, `npm run db:seed` runs
+ * at the root, and a script may run from anywhere. All of them can find the
+ * same ceiling by looking upward.
+ *
+ * Returns `null` when there is no such marker — a deployed bundle without the
+ * repository around it. That case falls back to the caller's own resolution,
+ * which is correct: a deployment that ships no workspace has no root to anchor
+ * to, and in practice sets DATABASE_URL and never reaches this code at all.
+ */
+function findWorkspaceRoot(from: string): string | null {
+  let dir = from;
+  for (;;) {
+    const manifest = join(dir, "package.json");
+    if (existsSync(manifest)) {
+      try {
+        const parsed = JSON.parse(readFileSync(manifest, "utf8")) as { workspaces?: unknown };
+        if (parsed.workspaces) return dir;
+      } catch {
+        // A malformed package.json is not this function's problem; keep climbing.
+      }
+    }
+
+    const parent = dirname(dir);
+    if (parent === dir || dir === parse(dir).root) return null;
+    dir = parent;
+  }
+}
+
+/**
+ * Where an embedded database actually lives.
+ *
+ * **The bug this exists for.** `PGLITE_DATA_DIR` is a relative path, and PGlite
+ * resolves relative paths against `process.cwd()`. The npm scripts do not share
+ * a working directory: `npm run dev` executes in `apps/web` and `npm run
+ * db:seed` executes at the repository root, so the single configured value
+ * `.pglite/dev` denoted **two different physical databases**. A fresh checkout
+ * seeded one and served the other, which made the game unplayable and every
+ * setup command unreliable.
+ *
+ * The fix is to anchor relative paths to the workspace root rather than to
+ * whichever directory happened to launch the process. The configured value stays
+ * relative and machine-independent; only its resolution becomes absolute.
+ *
+ * Three things are deliberately passed through untouched:
+ *
+ * - **`memory://` and any other URL form**, which names no location on disk.
+ * - **Absolute paths**, so an operator can still point a process anywhere.
+ * - **Everything under `DATABASE_URL`**, which never reaches this function.
+ *   Hosted Postgres semantics are unchanged.
+ */
+export function resolvePgliteDataDir(configured: string, cwd = process.cwd()): string {
+  if (configured.includes("://")) return configured;
+  if (isAbsolute(configured)) return configured;
+
+  const root = findWorkspaceRoot(cwd);
+  return resolve(root ?? cwd, configured);
+}
+
+/**
  * Creates a database handle.
  *
  * Driver choice is environment-driven, never code-driven: set DATABASE_URL and
@@ -80,7 +145,8 @@ export async function createDatabase(
   ]);
 
   // "memory://" gives a throwaway database — what tests use.
-  const dataDir = options.dataDir ?? process.env.PGLITE_DATA_DIR ?? ".pglite/dev";
+  const configured = options.dataDir ?? process.env.PGLITE_DATA_DIR ?? ".pglite/dev";
+  const dataDir = resolvePgliteDataDir(configured);
 
   if (!dataDir.includes("://")) {
     // PGlite creates the leaf directory but not its parents.

@@ -54,6 +54,15 @@ export type RightNow = {
     | "BATTLE_ANGLE"
     /** Out, and the world is deciding. */
     | "AWAITING_RECEPTION"
+    /**
+     * The scene has not reached this career, and it cannot reach the scene.
+     *
+     * Distinct from `NOTHING`, which means "you are free" — this means "you are
+     * stuck, and it is not your fault". Only reachable when first contact has
+     * not happened, which after the P0 repair means a genuine world fault
+     * rather than a routine state.
+     */
+    | "AWAITING_FIRST_CONTACT"
     | "NOTHING";
   title: string;
   detail: string;
@@ -426,6 +435,31 @@ function resolveRightNow(input: {
       detail: "It exists, it's yours, and nobody has heard it yet.",
       href: "/studio",
       cta: "Open the studio",
+    };
+  }
+
+  /*
+   * A career that has never been reached, and cannot reach anybody.
+   *
+   * Sessions come from producers and producers come from first contact, so a
+   * career with no contact, no conversation, no session and no track has no
+   * move available to it — and the line below this one used to tell it to go
+   * and make something happen, then send it to a studio that would send it to
+   * an empty inbox. That is the state the M0–M9 audit got permanently stuck in,
+   * and the copy is why it took a database query to understand.
+   *
+   * Reported honestly rather than mechanically solved: first contact is retried
+   * on the world's own tick, and nothing here writes anything.
+   */
+  if (!input.hasConversation && !input.opportunity) {
+    return {
+      kind: "AWAITING_FIRST_CONTACT",
+      title: "Nobody in the scene has reached you yet.",
+      detail:
+        "Sessions come from producers, and producers come from people who know you. " +
+        "Nothing has come through — if it stays this way, something is wrong on our side.",
+      href: "/messages",
+      cta: "Check your messages",
     };
   }
 

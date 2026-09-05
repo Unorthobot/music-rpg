@@ -162,8 +162,27 @@ export async function completeCareerOnboarding(
    * that transaction: first contact refuses a career that has not started, and
    * a world with no producers in it must not be able to undo somebody's entry
    * into The Underground. If it cannot happen, the career still started.
+   *
+   * **The failure is reported, not swallowed.** This call used to discard its
+   * `Result` entirely, which is how a career could be created with no way to
+   * begin and no trace of why: nothing was written, nothing was logged, and the
+   * player was told "Nothing's waiting on you". Nothing here is *consumed* by a
+   * failure — `createFirstContact` returns before it writes — so the operation
+   * stays retryable, and `advanceCareerDay` retries it. What was missing was
+   * anybody knowing it had happened.
    */
-  await createFirstContact(ctx, { careerId: career.id, userId: input.userId });
+  const contacted = await createFirstContact(ctx, {
+    careerId: career.id,
+    userId: input.userId,
+  });
+
+  if (!contacted.ok) {
+    console.error(
+      `[onboarding] first contact failed for career ${career.id}: ` +
+        `${contacted.error.code} — ${contacted.error.message}. ` +
+        `The career started; the scene will try again on the next day advance.`,
+    );
+  }
 
   await track(ctx, {
     name: "career_onboarding_completed",

@@ -44,8 +44,11 @@ export default defineConfig({
     // first request to each route slow and occasionally flaky, which is a
     // property of `next dev` rather than of the app.
     //
-    // The data directory lives at the repo root, so PGLITE_DATA_DIR has to climb
-    // out of apps/web. The wipe belongs to global setup, which runs first and
+    // PGLITE_DATA_DIR is resolved against the workspace root, not against
+    // whichever directory launched the process, so this reads the same database
+    // global setup writes even though the server runs in apps/web. It used to
+    // have to climb out with "../../", which is the workaround that proved the
+    // split existed. The wipe belongs to global setup, which runs first and
     // needs the directory to itself.
     command: `npx next build && npx next start -p ${PORT}`,
     cwd: "apps/web",
@@ -57,7 +60,7 @@ export default defineConfig({
     stdout: "pipe",
     stderr: "pipe",
     env: {
-      PGLITE_DATA_DIR: "../../.pglite/e2e",
+      PGLITE_DATA_DIR: ".pglite/e2e",
       ANALYTICS_ADAPTER: "noop",
       // Grants the world-control spec's fixed account access to the inspector.
       WORLD_CONTROL_EMAILS: "world-control@example.test",

@@ -1,5 +1,5 @@
 import "server-only";
-import { getDatabase, seedDatabase, worlds, type Database } from "@music-rpg/database";
+import { getDatabase, seedDatabase, type Database } from "@music-rpg/database";
 
 /**
  * Application database access.
@@ -16,9 +16,25 @@ import { getDatabase, seedDatabase, worlds, type Database } from "@music-rpg/dat
  */
 let seeding: Promise<void> | null = null;
 
+/**
+ * Brings an embedded database up to the current seed, once per process.
+ *
+ * This used to return early if a world already existed, which treated "has a
+ * world" as a proxy for "has everything the seed provides". That proxy fails
+ * the moment the seed grows: a database seeded before characters existed keeps
+ * its world for ever and never gains a connector or a producer, and a career
+ * created in it has no way to start — the exact state the M0–M9 playability
+ * audit found and could not recover from.
+ *
+ * `seedDatabase` is idempotent by construction — every insert is an upsert
+ * keyed on its natural key — so the honest thing is to run it rather than to
+ * guess from one row whether it has already been run. It is a few dozen upserts
+ * against a local database, once per process.
+ *
+ * Embedded only. Hosted Postgres still seeds exclusively through a deliberate
+ * `npm run db:seed`, and that contract is unchanged.
+ */
 async function ensureSeeded(db: Database): Promise<void> {
-  const existing = await db.select({ id: worlds.id }).from(worlds).limit(1);
-  if (existing[0]) return;
   await seedDatabase(db);
 }
 

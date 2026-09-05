@@ -5,6 +5,7 @@ import type { CommandContext } from "../context";
 import { DomainErrors, type DomainError } from "../errors";
 import { loadOwnedCareer } from "../internal/career";
 import { DAYS } from "../internal/clock";
+import { createFirstContact } from "./first-contact";
 import { simulateReceptionTick, type SimulateReceptionResult } from "./reception";
 import { syncCareerRelationships } from "./relationships";
 import { surfaceRelationshipMoments } from "./moments";
@@ -162,6 +163,36 @@ export async function advanceCareerDay(
   const careerResult = await loadOwnedCareer(ctx.db, input.careerId, input.userId);
   if (!careerResult.ok) return careerResult;
   const career = careerResult.value;
+
+  /*
+   * 0. The scene catches up.
+   *
+   *    First contact is attempted once, when onboarding completes. If the world
+   *    could not supply it then — no connector, no producers, a database that
+   *    was not what it should have been — the career started anyway, with
+   *    nothing waiting on it and no way to begin. Nothing is consumed by that
+   *    failure: `createFirstContact` returns before it writes, so the operation
+   *    is still available.
+   *
+   *    Retried here, above the release guard, because this is the world's own
+   *    tick and because a career in that state has no release to get past it
+   *    with. Idempotent on the success path by its own identity key, so a career
+   *    that was contacted normally pays one indexed lookup and nothing else.
+   *
+   *    A failure here is not a failed day: it is reported the same way it is at
+   *    onboarding and the day continues.
+   */
+  const contacted = await createFirstContact(ctx, {
+    careerId: career.id,
+    userId: input.userId,
+  });
+
+  if (!contacted.ok) {
+    console.error(
+      `[advance-day] first contact still unavailable for career ${career.id}: ` +
+        `${contacted.error.code} — ${contacted.error.message}`,
+    );
+  }
 
   const releaseRows = await ctx.db
     .select()
