@@ -1021,3 +1021,263 @@ I came back for that. I would have come back a third time.
 
 I stopped because the second fight returned the same words as the first — which tells you both what
 SAIFA already has, and precisely what it is missing.
+
+---
+---
+
+# Part II — Reinterpretation against the clarified target experience
+
+**Status: subsequent analysis, added after the fact. Everything above is the blind audit and is
+unchanged.**
+
+Part I was written against the target the milestones implied: a persistent simulation surfaced
+through screens. The target has since been clarified as **an intuitive, mission-driven, spatial/POV
+music-career RPG, in which the existing simulation becomes embodied world behaviour rather than
+increasingly sophisticated dashboards.**
+
+This section does not revise a single observation from the playthrough. The evidence — what
+happened, what I felt, what the database held — stands exactly as recorded. What changes is the
+**meaning and priority** of that evidence, and in one case the direction of a recommendation I made.
+Where Part I and Part II disagree, Part I records what a player experienced and Part II records what
+it implies for a different destination.
+
+**Infrastructure is out of scope here.** The two P0 findings in §32 — the split
+`PGLITE_DATA_DIR` databases, and the silent unrecoverable first-contact failure — are unaffected by
+any target choice. They block every version of this game equally and are not reinterpreted below.
+
+---
+
+## II.1 The core inversion
+
+Part I's leading recommendation was **"make resolved events narrate themselves."**
+
+Against the clarified target that is the dashboard-shaped version of the right instinct.
+**Narration is what you build when the player is absent.** The audit's central discovery — three
+shows, two battles and a chapter transition all resolving without me — is not primarily a
+*reporting* gap. It is that **the player is not present at their own career.**
+
+The remedy inverts accordingly. "The game never told me my show happened" is answered not by a
+better notification but by having been at the show. Roughly a third of Part I's P1 findings
+reclassify on that single move.
+
+## II.2 Why the audit is unusually strong evidence for this target
+
+Three results, all reached blind, point the same way:
+
+- **"Every YES was caused by a person or an event. No YES was ever caused by a number."** Twenty
+  day-advances, six moments of genuine desire, none of them from a metric.
+- **The prose quality is a symptom as well as a strength.** The battle result screen is the best
+  writing in SAIFA *because it substitutes for having been in the room*; "You played a room" is a
+  sentence standing in for a night. The writing is a design document in the wrong medium — it
+  demonstrates that the intended feeling of these moments is already well understood.
+- **The spatial skeleton already exists in the data.** Five scenes with distinct written character,
+  venues with real capacities (120 / 180 / 220 / 300), promoters bound to scenes, producers bound to
+  places (LEX–Newtown, MO–Soweto, ZERO–Alexandra), attendance computed per night. The world is
+  already geographic and only presented flat.
+
+**Cost implication:** the pivot is expensive in presentation and cheap in simulation. It gives
+bodies to facts the engine already produces.
+
+---
+
+## II.3 Two design constraints
+
+These bound everything below.
+
+### The natural-interface rule
+
+> **Use interfaces for information and actions an artist would naturally access through an
+> interface. Use the simulated world for things an artist would naturally experience.**
+
+**POV does not mean "remove UI."** Phones, messages, calendars, maps, money, streaming analytics
+and similar surfaces are entirely appropriate — a working artist genuinely does check a booking
+message, look at a calendar, count money and read their numbers. The test is not *is it a screen*
+but *would this artist meet this thing as a screen*.
+
+Applied to the audit's evidence:
+
+- Checking whether Friday is free → **interface.** Real artists use diaries.
+- Reading a promoter's booking message → **interface.** That is how bookings arrive.
+- Finding out how the room felt on Friday night → **world.** No artist learns this from a dashboard.
+- Choosing a producer from three options with prices → **either**, and probably both: the shortlist
+  is an interface; the room you end up in is not.
+- Learning that 81 scene heads took the record → **ambiguous, and the ambiguity is the point.** The
+  count is plausibly analytics; *recognising those people in a room* is not.
+
+The failure mode this rule prevents is replacing a good screen with a worse diegetic one.
+
+### The embodiment-honesty rule
+
+> **Embodiment may dramatize or spatially manifest facts the simulation actually knows. It must not
+> manufacture unsupported facts merely to make the world feel alive.**
+
+SAIFA's honesty discipline — "Untested" skills, "Not written" legacy, "structured work, not audio",
+scouting that reports what you cannot know — is currently carried almost entirely by text.
+Embodiment is very good at implying things that are not true, so this discipline needs restating as
+a constraint on the pivot rather than assumed to survive it.
+
+Five distinctions the world must preserve:
+
+| Known | Must not become |
+|---|---|
+| **Attendance** — 137 people in a 180-capacity room | **Enthusiasm.** A full room is not a room that liked it. |
+| **Recognition** — the scene has seen your name twice | **Admiration.** Being known is not being rated. |
+| **Relationship state** — trust 70, respect 100, chemistry 100 | **Unsupported dialogue.** A number that high licenses *warmth*, not invented shared history. |
+| **Presence** — a tastemaker was in the room | **Endorsement.** Attending is not co-signing. |
+| **Correlation** — the record landed and a promoter called | **Causation.** The world may not assert it booked you *because* of the record unless the simulation says so. |
+
+**There is already a precedent for this failure.** Part I §14 records scouting reporting that KGOSI
+*"has been in rooms like this before, and not always come out on top"* — he had one battle and won
+it 3–0. The text layer already manufactures a fact to fill a gap. A world layer will be far more
+persuasive when it does the same thing, and correspondingly more damaging.
+
+---
+
+## II.4 Interface classification
+
+### Permanent — survive the pivot in function, whatever their eventual form
+
+| Interface | Why it survives |
+|---|---|
+| **Sound discovery + reveal** | A character creator, not a dashboard. Five questions produced THE PURIST, three traits, and my own sentence quoted back, in ninety seconds. |
+| **Producer choice** | Three named people, three prices, three trade-offs, one affordable. The information architecture is right; only its container is a screen. |
+| **Member selection + chemistry** | The best content in the game: people, tension, and consequence text on a live meter. |
+| **Calendar** | "I have a show Friday" is already a mission-shaped, spatial thought. Collision detection and confirm-before-you-lose-something are permanent design. |
+| **Messages** | Bookings arrive as messages in life. Natural-interface rule, cleanly satisfied. |
+| **Money** | Not as a running total but as *can I afford this room, this producer, this preparation* — which worked for exactly one week (§19). |
+| **Deadlines** | "Answer by 14 January", sharpening to "ANSWER BY TOMORROW", is a commitment device in any medium. |
+
+### Transitional scaffolding — right content, wrong medium; do not invest further
+
+| Interface | What it stands in for |
+|---|---|
+| **Advance Day** | The deepest one. Time should pass because the artist moved and did things. Currently it is transit between events; the pivot's work is to make the transit itself the game. |
+| **Reception detail page** | Part I called this "the best data surface in the game." Corrected: it is the best version of the wrong thing. **81 scene heads is a crowd, not a bar**, and "It's being passed around" narrates movement through a city. *(Subject to the natural-interface rule — some of this is legitimately analytics; see II.7.)* |
+| **World feed** | Right content model — public facts in the scene's register — wrong container. The world should be a place, not a list of things that happened in it. |
+| **Battle result screen** | Simultaneously the strongest proof-of-concept in the game and pure scaffolding: an opponent, a room, three judges and a verdict, delivered as a page because the player was absent. |
+| **Home's "RIGHT NOW"** | A stand-in for looking around. |
+| **Fame / Respect / Heat as numbers** | Should be felt as how people treat you when you walk in. The numbers are placeholders for behaviour that does not yet exist. |
+| **Notifications** | A feed of things that happened offscreen — definitionally the artifact of an absent player. |
+
+### Actively misleading — worth removing rather than improving
+
+- **The Play button, waveform and transport.** They promise an artefact that does not exist
+  (`<audio>` has an empty `src`), and they train the player to treat the music as a file rather than
+  something heard in rooms, cars and at shows. This one also violates the embodiment-honesty rule
+  today, before any world exists.
+- **YOUR STORY.** The dashboard answer to "what happened to me", and broken besides — 17 entries all
+  wall-clock dated, seven of them lapse noise, omitting both releases, both battles and The Come Up.
+  Repairing it would be investment in the layer being replaced.
+- **Cohort bars.** They teach the player to read an audience as a chart rather than recognise faces.
+
+---
+
+## II.5 The missing layer
+
+Part I's unifying finding, restated for this target: **every system in SAIFA has a reason and an
+outcome, and no middle.**
+
+```
+REASON  →  PLACE  →  PREPARATION  →  EXECUTION  →  OUTCOME
+```
+
+| Stage | State in SAIFA at `8d88fbc` |
+|---|---|
+| **Reason** | **Present, and causally motivated.** *"You've been getting mentioned in rooms I'm in."* Naledi upgrading me from opening to carrying. MO asking to work again. |
+| **Place** | **Present in the data.** Named venues with capacities, five scenes with written character, promoters bound to scenes, producers bound to places. |
+| **Preparation** | **Present, and the best-designed thing in the game.** *"Another session is a day in the studio and R450. That's a day a record could have had."* Strategy locked before prep begins. |
+| **Execution** | **Absent everywhere.** |
+| **Outcome** | **Present, sometimes beautifully written** — the three-judge verdict — and sometimes four words: *"You played a room."* |
+
+The battle is the only system carrying four of the five stages, and even it substitutes a committed
+strategy for the round itself.
+
+**This is why the rematch failed.** I changed approach and paid R450 twice, and got a
+verbatim-identical 3–0. With no middle, a changed strategy has nowhere to express itself. Execution
+is the layer a spatial/POV game exists to provide, and its absence explains the audit's largest
+finding without appealing to any defect in the simulation.
+
+---
+
+## II.6 Simulation facts most urgently needing embodiment
+
+Ranked by latent experience trapped per unit of work. Each is a fact the simulation already computes
+and stores — so each is manifestation, not invention, and each satisfies the embodiment-honesty rule
+by construction.
+
+1. **Attendance — 36 / 85 / 137.** The most directly spatial number in the database, computed three
+   times and shown zero times. 36 in a 120-capacity rooftop is a thin, awkward room; 137 in a
+   180-capacity room is nearly full. Currently observable only as a change in bank balance.
+   *Honesty guard: attendance is not enthusiasm.*
+2. **Performance resolution as a whole.** Three nights happened in my absence, including the one
+   that supplied the second recognition domain and caused The Come Up. The transition felt arbitrary
+   **solely** because its cause was silent.
+3. **Cohort composition — 81 scene heads / 16 tastemakers / 25 casual listeners.** Three populations
+   with different tastes, currently a legend; in a world, the people who are in the room and who
+   recognise you in it. *Honesty guard: presence is not endorsement.*
+4. **Relationship state — MO at trust 70 / respect 100 / chemistry 100, plus an open
+   `WANTS_ANOTHER_SESSION` moment.** The richest thing in my career, never mentioned once, on a
+   screen Home never linked to. *Honesty guard: high trust licenses warmth, not invented history.*
+5. **Scene identity and grounding.** Five scenes with real character (Braamfontein *"too many people
+   with something to prove"*; Soweto *"respect is slow to earn and slower to lose"*), each with its
+   own promoters. Note that my typed origin **Soweto** did not become my home scene (**Alexandra**)
+   — a minor copy bug on a dashboard, a **grounding failure** in a spatial game.
+6. **Release strategy modifiers** — `Tease` stored `{reach:10, anticipation:25}`, `Drop` stored
+   zeros, neither perceptible. *"Perform it first · needs venue"* and *"Send it around · needs
+   contacts"* describe **places to go and people to see**, advertised and unreachable.
+7. **Battle round structure.** Three judges with separate reasoning already exist; the round does
+   not.
+
+---
+
+## II.7 Priority shifts within Part I's severity list
+
+Severities in §32 were assigned against the dashboard target. Against this one:
+
+**Rises.** Performances resolving invisibly (#3) becomes the flagship gap — it is the most spatial
+event in the game. Attendance never shown is promoted out of "not felt" into the same finding.
+Character voice not evolving (#15) rises sharply, because a POV artist meets these people
+repeatedly rather than reading them once. The origin/home-scene mismatch (#31) rises from P3 copy
+bug to grounding failure. *"needs venue / needs contacts"* (#29) rises, because the game is
+advertising destinations in a world that has none.
+
+**Falls.** Home ignoring a scheduled release (#11) and surface redundancy (§30) fall, because the
+surfaces involved are scaffolding. YOUR STORY (#13) falls as a repair and rises as a removal
+candidate. The fifteen identical reception headlines (#4) fall in severity as a *copy* problem —
+under this target the player would not be reading a daily headline at all — while the underlying
+finding, 364 events reported as one sentence, rises as an embodiment target.
+
+**Unchanged.** Battles not differentiating (#5) and per-record choices not altering perceived
+reception (#6) are unchanged in severity and become *easier* to address once an execution layer
+exists.
+
+---
+
+## II.8 Consequences for the three ranked candidates
+
+Part I's candidates are re-read, not replaced. **No specification is written here or elsewhere.**
+
+- **Consequence reporting → consequence *manifestation*.** Same evidence, different verb. The
+  question is not "does the game tell me what happened" but "was I there when it happened."
+- **Differentiated outcomes.** Survives unchanged and becomes more tractable: with a middle,
+  strategy has somewhere to express itself, so divergence stops being a text-generation problem.
+- **Refusal and cost.** Survives and strengthens: in a world of places and people, a promoter who
+  stops booking you removes a **room**, not a card.
+
+---
+
+## II.9 Open questions this reframe creates
+
+Added to §35 rather than replacing it.
+
+1. Does per-record creative direction genuinely fail to move reception, or merely fail to be
+   reported? This decides whether the studio needs a model change or only a body, and is answerable
+   cheaply against the existing simulation.
+2. Which currently-computed facts are analytics an artist would legitimately read on a phone, and
+   which are experiences? The reception page is the hardest case and probably splits in two.
+3. What is the smallest set of facts sufficient to make a room feel populated without inventing any?
+4. Does Advance Day survive in any form, or does time become entirely a consequence of movement?
+5. How is the honesty discipline enforced once the medium can imply things wordlessly — is there an
+   equivalent of the "structured work, not audio" caption for a world?
+6. Which of Part I's findings exist only because a seeded developer never plays a fresh career, and
+   would a spatial build make that class of defect more or less visible?
