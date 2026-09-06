@@ -276,7 +276,23 @@ export default async function HomePage({
           </p>
           <p className="text-sm text-ink-muted max-w-[60ch]">{home.rightNow.detail}</p>
           <div className="pt-1">
-            <LinkButton href={home.rightNow.href}>{home.rightNow.cta}</LinkButton>
+            {/*
+              The one "right now" with nowhere to send anybody.
+
+              Every other one points at a message, a session or a catalogue.
+              Sessions come from producers and the producers have not arrived, so
+              this is an act rather than a destination — and it runs through the
+              same world command the reception panel's control does, which a
+              career the scene has not reached yet has no reception panel to
+              find.
+            */}
+            {home.rightNow.kind === "AWAITING_FIRST_CONTACT" ? (
+              <form action={advanceDayAction}>
+                <Button type="submit">{home.rightNow.cta}</Button>
+              </form>
+            ) : (
+              <LinkButton href={home.rightNow.href}>{home.rightNow.cta}</LinkButton>
+            )}
           </div>
         </Surface>
       </section>

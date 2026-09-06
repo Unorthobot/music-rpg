@@ -219,12 +219,71 @@ the `thabo` connector from a seeded world:
    to, proving the retry sits above the release guard;
 4. a normally-contacted career stays exactly-once across day advances.
 
-### Known residual
+### Closing the player-facing half
 
-A career that fails first contact **and** has no release still cannot trigger
-the retry from the interface, because "Let a day pass" renders only inside the
-reception panel. After this repair that state requires a genuinely broken world
-rather than a misconfigured one, and the honest Home copy now names it. Making
-the day advance reachable earlier is a playability question, recorded as P1 #12
-in `docs/audits/M0-M9-playability-audit.md`, and was deliberately left to that
-work rather than changed here.
+The domain repair above left the player still deadlocked: retry existed, but the
+only route to it was `advanceCareerDay`, and the only control that invokes it
+renders inside the reception panel, which a career with nothing released does
+not have.
+
+Closed at the smallest player-facing boundary:
+
+- **`AWAITING_FIRST_CONTACT` carries a CTA — "See who's around" — and Home
+  renders it as an action** rather than a link, posting to the same
+  `advanceDayAction` the reception panel's control uses. One additional state
+  renders one existing control; no new mechanic, no new route, no redesign.
+- **The copy promises nothing about the clock and admits nothing about
+  infrastructure.** *"Nobody in the scene has reached you yet. Sessions come
+  from producers, and producers come from people who know you. The scene gets to
+  everybody eventually."* The player is never told that an operation failed,
+  because from where they are sitting nothing has.
+- **`advanceCareerDay` returns an empty day instead of a refusal** when step 0
+  has just made the introduction and nothing is released. No tick, no clock
+  movement, no director, no progression — only the verdict changes, so a player
+  whose problem was just solved is not handed "Nothing moved forward". A
+  contacted career with nothing out is refused exactly as before.
+- **Read-only invariance is intact.** The recovery is a form post; nothing on a
+  render path writes.
+
+`emptyDay()` returns `progression: null` and `director: null`. Everywhere else
+those are null only when a step failed, and `progression` is documented as
+present on every advance — but no day advanced here, so there is nothing to
+report and inventing an evaluation would assert that one did. The wider contract
+was deliberately **not** widened for one exceptional result.
+
+### The larger finding, recorded and not solved
+
+**World time is coupled to reception.** `currentGameDate` is written by
+`simulateReceptionTick`, so the clock advances only for a career with something
+released — and `advanceCareerDay` refuses outright when no tick runs
+("Nothing moved forward"). Time in this game therefore follows records rather
+than passing on its own.
+
+That is why the recovery above cannot advance a day and does not pretend to, and
+it is the structural reason behind the audit's P1 #12 (the day-advance control
+being gated behind publishing). Decoupling the clock from reception is a real
+piece of work with consequences for pacing, the opportunity director and
+progression, and it was deliberately left alone here. Recorded in
+`docs/audits/M0-M9-playability-audit.md` as P1 #12; this note is the mechanism
+behind it.
+
+### Regression coverage for the player-facing half
+
+Extends `tests/domain/first-contact-recovery.test.ts`:
+
+- Home offers the CTA in the stranded state, and its wording mentions no day and
+  no failure;
+- the command behind that control recovers the career, reports success, returns
+  an empty day, and leaves `currentGameDate` untouched;
+- exactly one first contact results, and Home resolves to `FIRST_MESSAGE` or
+  `PRODUCER_CHOICE` afterwards;
+- a second press creates no duplicate and moves no clock — it is refused like
+  any contacted career with nothing out;
+- Home renders that one state as a `<form action={advanceDayAction}>` and every
+  other as a link.
+
+Deliberately not covered by Playwright: inducing the fault in a browser needs a
+dedicated global-setup script, because PGlite is single-writer and nothing can
+touch the database while the server holds it. The claim proved here is the
+command-and-read-model path the control uses, plus a source assertion that Home
+wires the control to it.

@@ -457,9 +457,24 @@ function resolveRightNow(input: {
       title: "Nobody in the scene has reached you yet.",
       detail:
         "Sessions come from producers, and producers come from people who know you. " +
-        "Nothing has come through — if it stays this way, something is wrong on our side.",
-      href: "/messages",
-      cta: "Check your messages",
+        "The scene gets to everybody eventually.",
+      /*
+       * The player is told the truth — nobody has reached them — and offered the
+       * only move available to somebody in that position. They are not told that
+       * anything failed, because from where they are sitting nothing has: the
+       * scene has not got to them yet.
+       *
+       * The wording deliberately promises nothing about the clock. A career with
+       * nothing released cannot advance its day — `currentGameDate` is written
+       * by the reception tick — so a control saying otherwise would be claiming
+       * something the world will not do.
+       *
+       * `href` is for anything that renders this as a link; Home renders it as
+       * an action, because this is something the player does rather than
+       * somewhere they go.
+       */
+      href: "/home",
+      cta: "See who's around",
     };
   }
 

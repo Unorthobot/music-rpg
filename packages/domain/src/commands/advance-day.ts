@@ -144,6 +144,38 @@ async function nextGameTime(
   }, career.currentGameDate);
 }
 
+/**
+ * A day in which the only thing that happened was somebody getting in touch.
+ *
+ * Every list is empty and `gameTime` is the clock as it stands, unmoved — this
+ * describes a world event, not an advance. It exists so that the one caller
+ * that can reach it is told the truth rather than handed a refusal.
+ *
+ * **`progression` and `director` are null here, and that is deliberate.**
+ * Everywhere else in this result they are null only when a step failed, and
+ * `progression` in particular is documented as present on every advance. No day
+ * advanced on this path: no tick ran, no clock moved, no offer was weighed and
+ * no evidence changed, so there is nothing for either field to report and
+ * inventing an evaluation would be asserting that a day happened. The wider
+ * contract is left alone rather than widened to accommodate one exceptional
+ * result — if this path ever becomes ordinary, that is the moment to revisit
+ * the shape.
+ */
+function emptyDay(career: { currentGameDate: Date }): AdvanceDayResult {
+  return {
+    ticks: [],
+    battles: [],
+    performances: [],
+    moments: [],
+    opportunities: [],
+    expired: [],
+    director: null,
+    communicated: [],
+    progression: null,
+    gameTime: career.currentGameDate,
+  };
+}
+
 export async function advanceCareerDay(
   ctx: CommandContext,
   input: {
@@ -201,6 +233,23 @@ export async function advanceCareerDay(
     .orderBy(releases.releasedGameTime);
 
   if (releaseRows.length === 0) {
+    /*
+     * The scene reaching somebody is not a day passing.
+     *
+     * A career with nothing out cannot advance its clock: `currentGameDate` is
+     * written by the reception tick, so time here follows records. That stays
+     * true. But when step 0 has just made the introduction, the honest answer
+     * is no longer "nothing moved forward" — something did, and reporting a
+     * failure would put an error in front of a player whose problem was just
+     * solved.
+     *
+     * So this returns an empty day rather than a refusal: no tick, no clock
+     * movement, nothing else run, exactly as before — only the verdict changes.
+     * A contacted career with nothing out is refused precisely as it always
+     * was.
+     */
+    if (contacted.ok && contacted.value.created) return ok(emptyDay(career));
+
     return err(
       DomainErrors.invalidCareerState("Nothing of yours is out yet, so there's nothing to wait on."),
     );

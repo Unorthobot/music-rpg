@@ -131,6 +131,19 @@ describe("first contact · failure never consumes the ability to retry", () => {
     const home = await getCareerHome(T.handle.db, career);
     expect(home.rightNow.kind).toBe("AWAITING_FIRST_CONTACT");
     expect(home.rightNow.title.toLowerCase()).not.toContain("nothing's waiting");
+
+    /* Home offers a way out, and it is the one the player can actually press. */
+    expect(home.rightNow.cta).toBe("See who's around");
+
+    /*
+     * And it promises nothing the world will not do. A career with nothing
+     * released cannot advance its clock, so the copy must not offer a day.
+     */
+    const words = `${home.rightNow.title} ${home.rightNow.detail} ${home.rightNow.cta}`;
+    expect(words).not.toMatch(/day|tomorrow|wait a/i);
+
+    /* Nor may it tell the player that anything went wrong behind the scenes. */
+    expect(words).not.toMatch(/error|failed|wrong|retry|again|our side|support/i);
   }, 120_000);
 
   it("succeeds on retry, exactly once, with no duplicate consequences", async () => {
@@ -156,27 +169,83 @@ describe("first contact · failure never consumes the ability to retry", () => {
     expect(home.rightNow.kind).not.toBe("AWAITING_FIRST_CONTACT");
   }, 120_000);
 
-  it("is retried by the world's own tick, above the release guard", async () => {
+  it("recovers through the command behind Home's control, without moving the clock", async () => {
     await removeTheConnector();
-    const { careerId, userId } = await onboard("Day Advance");
+    const { careerId, userId } = await onboard("Stranded");
     await restoreTheWorld();
 
+    const stranded = await rowOf(careerId);
+    expect((await getCareerHome(T.handle.db, stranded)).rightNow.kind).toBe(
+      "AWAITING_FIRST_CONTACT",
+    );
     expect(await contactState(careerId)).toEqual({ offers: 0, conversations: 0 });
 
+    /* Nothing is out — the precondition that used to make this unreachable. */
+    const before = await rowOf(careerId);
+
     /*
-     * `advanceCareerDay` refuses a career with nothing released — which is
-     * exactly the career this failure produces, so the retry is placed above
-     * that guard. The command still reports the refusal; the scene still
-     * catches up.
+     * The same command Home's control posts to. It reports success, because
+     * something genuinely moved forward, and it does not pretend a day passed.
      */
-    const advanced = await advanceCareerDay(T.ctx, { careerId, userId });
-    expect(advanced.ok, "a career with nothing out should still be refused a day").toBe(false);
+    const recovered = await advanceCareerDay(T.ctx, { careerId, userId });
+    expect(recovered.ok, "the player was handed a failure after recovering").toBe(true);
+
+    const day = unwrap(recovered);
+    expect(day.ticks, "a career with nothing out simulated a release").toEqual([]);
+    expect(day.progression, "an empty day evaluated progression").toBeNull();
+    expect(day.director, "an empty day ran the director").toBeNull();
+
+    /* The clock follows records, and there are none. */
+    const after = await rowOf(careerId);
+    expect(after.currentGameDate, "the clock moved without a record to move it").toEqual(
+      before.currentGameDate,
+    );
+    expect(day.gameTime).toEqual(before.currentGameDate);
+
+    /* Exactly one first contact, and the state has recovered. */
+    expect(await contactState(careerId)).toEqual({ offers: 1, conversations: 1 });
+    const home = await getCareerHome(T.handle.db, after);
+    expect(home.rightNow.kind).not.toBe("AWAITING_FIRST_CONTACT");
+    expect(["FIRST_MESSAGE", "PRODUCER_CHOICE"]).toContain(home.rightNow.kind);
+  }, 120_000);
+
+  it("presses the control twice without a second first contact or a moved clock", async () => {
+    await removeTheConnector();
+    const { careerId, userId } = await onboard("Double Press");
+    await restoreTheWorld();
+
+    const before = await rowOf(careerId);
+    unwrap(await advanceCareerDay(T.ctx, { careerId, userId }));
+
+    /*
+     * A second press. The career is contacted now and still has nothing out, so
+     * it is refused exactly as any contacted career would be — the narrow
+     * recovery path closed behind it.
+     */
+    const again = await advanceCareerDay(T.ctx, { careerId, userId });
+    expect(again.ok).toBe(false);
 
     expect(
       await contactState(careerId),
-      "the day advance did not retry first contact",
+      "a second press created a duplicate first contact",
     ).toEqual({ offers: 1, conversations: 1 });
+    expect((await rowOf(careerId)).currentGameDate).toEqual(before.currentGameDate);
   }, 120_000);
+
+  it("renders that CTA on Home as an action rather than a link", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("apps/web/src/app/(app)/home/page.tsx", "utf8");
+
+    /*
+     * Asserted against the page rather than only the read model, because the
+     * read model can offer a CTA that Home renders as a link to nowhere. This
+     * one state has to post to the world command; every other stays a link.
+     */
+    const code = source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+    expect(code).toMatch(/rightNow\.kind === "AWAITING_FIRST_CONTACT"/);
+    expect(code).toMatch(/<form action=\{advanceDayAction\}>[\s\S]{0,200}rightNow\.cta/);
+    expect(code).toMatch(/<LinkButton href=\{home\.rightNow\.href\}>/);
+  });
 
   it("leaves a normally-contacted career exactly-once when days pass", async () => {
     const { careerId, userId } = await onboard("Healthy");
