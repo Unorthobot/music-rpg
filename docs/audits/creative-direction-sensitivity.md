@@ -325,3 +325,224 @@ things: loaded the real seeded cohorts, called the real inference and evaluation
 for Level 1, and drove real careers through `makePublishedRelease` and `advanceCareerDay` for
 Level 2. No gameplay code, coefficient, threshold or behaviour was modified at any point, and no
 figure in this document comes from a modified system.
+
+---
+---
+
+# Appendix — Proposal kind: `AS_ASKED` vs `PRODUCER_ANGLE` vs `COUNTER`
+
+**Status: subsequent measurement, same commit (`798b85c`), same method.** §8.2 named this the
+largest gap in the audit: only the AS_ASKED path had been measured, so the producer's influence was
+reported as a floor. This closes that gap. Audit only; nothing changed.
+
+**Question:** does *which of the producer's three ideas the player takes* materially change the
+music and the career — and is the effect big enough that a relationship with a producer can shape a
+career?
+
+**Answer:** yes, and by a specific mechanism. Taking a producer's angle or counter **amplifies who
+that producer is** rather than adding a new axis of its own. Producer choice moves scene-heads `fit`
+by 0.0032 on AS_ASKED and by **0.1269 on COUNTER — a 40× amplification** — and end-to-end fan
+outcomes spread 1.35× across producers on AS_ASKED against **1.74× on COUNTER**.
+
+---
+
+## A.1 Design
+
+Identical to the main audit. Held constant: artist and Sound DNA (purist, fixed discovery answers),
+the brief itself (`story / tense+melancholic / energy 32 / risk 72 / scene`), solo arrangement,
+format SINGLE, strategy DROP, timing, world. Varied: producer (LEX / MO / ZERO) × proposal kind
+(AS_ASKED / PRODUCER_ANGLE / COUNTER) = 9 cells, each run on 3 fixed seeds for 5 in-world days —
+27 careers, each driven through the real command chain with the proposal selected by index.
+
+---
+
+## A.2 What actually changes in the record
+
+### Sound — the producer only moves the axes they have opinions about
+
+Mean |Δ| against AS_ASKED across the eight axes, producer MO:
+
+| | mean shift |
+|---|---|
+| PRODUCER_ANGLE | 0.0812 |
+| COUNTER | **0.1281** |
+
+Per axis, MO:
+
+| Axis | AS_ASKED | ANGLE | COUNTER | Δ ANGLE | Δ COUNTER |
+|---|---|---|---|---|---|
+| darkBright | −0.461 | −0.461 | −0.374 | **0.000** | 0.087 |
+| rawPolished | −0.348 | −0.348 | −0.287 | **0.000** | 0.061 |
+| minimalDense | −0.305 | −0.305 | −0.240 | **0.000** | 0.065 |
+| organicElectronic | −0.203 | −0.446 | −0.525 | **0.243** | 0.322 |
+| classicFuturistic | −0.085 | −0.323 | −0.404 | **0.238** | 0.319 |
+| accessibleExperimental | 0.388 | 0.388 | 0.304 | **0.000** | 0.084 |
+| melodicRhythmic | −0.349 | −0.429 | −0.384 | 0.080 | 0.035 |
+| intimateAnthemic | −0.512 | −0.601 | −0.564 | 0.089 | 0.052 |
+
+**Taking the angle changes only the four axes MO has a bias on; the other four are bit-identical.**
+That is `addInto(sound, profile.soundBias, 0.9)` doing exactly what it says. COUNTER moves all eight,
+because it additionally subtracts the brief (`asked × −0.35`) — so a counter is the only path that
+moves the record away from what the player asked for on axes the producer has no view about.
+
+Every producer biases exactly **4 of 8** axes, and they are not the same four:
+
+| Producer | Adventurousness | Biased axes |
+|---|---|---|
+| **LEX** | 84 | darkBright −0.40 · minimalDense −0.55 · organicElectronic +0.50 · accessibleExperimental **+0.50** |
+| **MO** | 44 | organicElectronic −0.55 · classicFuturistic −0.45 · melodicRhythmic −0.20 · intimateAnthemic −0.30 |
+| **ZERO** | 38 | darkBright +0.25 · rawPolished +0.45 · accessibleExperimental **−0.50** · intimateAnthemic +0.50 |
+
+LEX and ZERO oppose each other on three axes, including `accessibleExperimental` at ±0.50. They are
+genuinely different collaborators, not palette swaps.
+
+### Quality and risk — the producer rewrites the brief's headline number
+
+Producer MO, same brief:
+
+| Kind | energy | risk | focus | distinctiveness | immediacy |
+|---|---|---|---|---|---|
+| AS_ASKED | 32 | **72** | 65.0 | 81.0 | 45.0 |
+| PRODUCER_ANGLE | 38 | **58** | 72.0 | 76.0 | 54.0 |
+| COUNTER | 30 | **62** | 70.0 | 78.0 | 50.0 |
+
+The angle makes the record more focused and more immediate and less distinctive — a coherent
+"producer tightens it" story. But the load-bearing change is `risk`, and it is **not** the player's
+number any more:
+
+| Producer | Adventurousness | AS_ASKED | ANGLE | COUNTER |
+|---|---|---|---|---|
+| **LEX** | 84 | 72 | **78** | **86** |
+| **MO** | 44 | 72 | 58 | 62 |
+| **ZERO** | 38 | 72 | **55** | **59** |
+
+`risk` is the single most consequential creative variable in the whole system (main audit §4:
+spread 0.1573, against energy's 0.0041). Accepting a producer's angle or counter hands control of
+that variable to their `adventurousness`. An adventurous producer pushes a brief of 72 up to 86; a
+cautious one pulls it down to 55.
+
+**This is the mechanism that connects the two audits.** The producer relationship matters because it
+modulates the one creative dimension that matters.
+
+---
+
+## A.3 Cohort fit
+
+Same brief, same artist, all nine cells:
+
+| Producer | Kind | Scene heads | Casual | Tastemakers | Title (stance) |
+|---|---|---|---|---|---|
+| LEX | AS_ASKED | 0.7146 | 0.5269 | 0.7249 | QUIET DISTANCE (cautious) |
+| LEX | ANGLE | 0.7184 | 0.5211 | 0.7317 | DISTANCE (compromising) |
+| LEX | **COUNTER** | **0.7288** | 0.5256 | **0.7367** | SIGNAL (pushing back) |
+| MO | AS_ASKED | 0.7174 | 0.5302 | 0.7209 | COLD WEIGHT (compromising) |
+| MO | ANGLE | 0.7105 | 0.5459 | 0.6973 | LOW HOURS (compromising) |
+| MO | COUNTER | 0.7150 | 0.5477 | 0.6892 | LATE WEIGHT (pushing back) |
+| ZERO | AS_ASKED | 0.7142 | 0.5371 | 0.7196 | DEAD CITY (compromising) |
+| ZERO | ANGLE | 0.6562 | 0.5897 | 0.6673 | NO VICTORY (compromising) |
+| ZERO | **COUNTER** | **0.6019** | **0.6234** | 0.6356 | LATE ROOM (interested) |
+
+**The amplification, stated plainly** — spread in scene-heads `fit` across the three producers:
+
+| Kind | min | max | **spread** | vs AS_ASKED |
+|---|---|---|---|---|
+| AS_ASKED | 0.7142 | 0.7174 | **0.0032** | — |
+| PRODUCER_ANGLE | 0.6562 | 0.7184 | **0.0622** | **19×** |
+| COUNTER | 0.6019 | 0.7288 | **0.1269** | **40×** |
+
+On COUNTER the producer effect (0.1269) exceeds artist Sound DNA (0.109, main audit §4) and reaches
+63% of the entire direction space (0.202). Choosing a producer and then taking their counter is one
+of the largest single acts of authorship available.
+
+**ZERO's counter inverts the cohort ordering in the model** — casual 0.6234 above scene heads
+0.6019 — turning a purist's scene record into a casual-leaning one. See A.5 for why that inversion
+does *not* survive to realised outcomes.
+
+---
+
+## A.4 Listeners and fans, end to end
+
+5 in-world days, 3 seeds, mean [range]:
+
+| Producer / kind | Listeners | Engaged | Fans |
+|---|---|---|---|
+| LEX / AS_ASKED | 95.0 [92–97] | 41.3 | 7.7 [7–9] |
+| LEX / ANGLE | 94.0 [91–96] | 40.3 | 7.7 [7–9] |
+| **LEX / COUNTER** | 96.3 [92–101] | 42.7 | **8.7 [8–9]** |
+| MO / AS_ASKED | 92.0 [87–96] | 38.7 | 6.3 [5–7] |
+| MO / ANGLE | 91.3 [88–95] | 38.3 | 5.7 [5–7] |
+| MO / COUNTER | 91.0 [87–95] | 37.7 | 5.7 [5–7] |
+| ZERO / AS_ASKED | 91.7 [88–96] | 38.3 | 5.7 [5–7] |
+| ZERO / ANGLE | 87.3 [86–90] | 35.0 | 5.0 [5–5] |
+| **ZERO / COUNTER** | 84.0 [82–88] | 33.3 | **5.0 [5–5]** |
+
+Producer spread in fans, by kind:
+
+| Kind | LEX / MO / ZERO | spread | ratio |
+|---|---|---|---|
+| AS_ASKED | 7.7 / 6.3 / 5.7 | 2.0 | 1.35× |
+| PRODUCER_ANGLE | 7.7 / 5.7 / 5.0 | 2.7 | 1.54× |
+| **COUNTER** | 8.7 / 5.7 / 5.0 | 3.7 | **1.74×** |
+
+**The variance is across producers, not across kinds.** Within a single producer the three kinds
+barely separate — LEX 7.7/7.7/8.7, MO 6.3/5.7/5.7, ZERO 5.7/5.0/5.0, spreads of 1.0, 0.6 and 0.7
+fans against 3.7 across producers at COUNTER. And taking the counter is **not reliably better**: it
+is the best cell for LEX and the worst for both MO and ZERO.
+
+The fan ordering tracks the `risk` table in A.2 exactly. LEX raises a 72 brief to 86 and gains; MO
+and ZERO cut it to 62 and 59 and lose. Taking a producer's strongest idea is good when their taste
+runs with the brief and costly when it runs against it — which is a real, legible strategic
+proposition.
+
+---
+
+## A.5 What did **not** change
+
+**The leading cohort never moved.** Scene heads led all 27 runs, including ZERO/COUNTER where the
+model has casual listeners ahead on `fit`. Realised leadership is driven by engaged *counts*, and
+cohort size and behavioural weights dominate a 0.02 fit inversion. **A fit inversion of that size
+does not survive into outcomes** — worth knowing before treating model-level cohort flips as
+player-visible events.
+
+**The verdict sentence was identical in 8 of 9 cells.** Only ZERO/COUNTER — the cell furthest from
+the brief — dropped to the weaker bucket. A 1.74× fan difference produced, at most, one different
+adjective. This reproduces the main audit's §5 finding on an entirely different variable, which
+strengthens it: the reporting limit is not specific to creative direction.
+
+---
+
+## A.6 Can a producer relationship genuinely shape a career?
+
+**Yes, with a precise shape.**
+
+- **Producer choice is the real lever; proposal kind is its gain control.** Fan outcomes spread
+  1.35× across producers when the player takes their own idea and 1.74× when they take the
+  producer's counter. The kind chosen within one producer moves fans by ≤1.0.
+- **The effect operates through `risk`**, the dominant creative variable, via the producer's
+  `adventurousness`. That is a genuine transfer of authorship: accepting the counter means the
+  producer, not the player, sets the number that matters most.
+- **It is directional, not monotonic.** Deferring to a producer aligned with the brief helps
+  (LEX/COUNTER, 8.7 fans, the best of all nine cells); deferring to a misaligned one hurts
+  (ZERO/COUNTER, 5.0, the worst). There is a right answer per pairing, and it is discoverable in
+  principle from the producers' stated aesthetics.
+- **The magnitude is career-shaping over one record** (1.74×) and the main audit's compounding
+  caveat applies: five days is not a career, and affinity and `ACT_REACH` may amplify or wash it out.
+
+**But none of it is currently legible.** The three proposals differ by 0.243 on two sound axes and
+by 28 points of risk, and the playability audit found two of the three read as near-identical text.
+The player is making the largest authorship decision available to them with the least information.
+
+---
+
+## A.7 Uncertainties specific to this appendix
+
+1. **One brief, one artist archetype.** The risk-modulation mechanism predicts the sign of every
+   result here, but a low-risk brief (say 20) would invert which producers help — LEX would raise it,
+   MO and ZERO would raise it less. Untested, and it would confirm or break the mechanism.
+2. **`rejectProducerProposals` (the second pass) was not measured.** Refusing the whole set and
+   taking the second round is a fourth path with its own `round` seed, and is not in these numbers.
+3. **Combining proposals was not measured.** `combineProducerProposals` averages two sound
+   directions and is a fifth path.
+4. **Five days again.** The producer spread may compound through affinity or wash out.
+5. **Stances were observed but not analysed** — the same cell can be `COMPROMISING` or
+   `PUSHING_BACK`, and whether stance correlates with outcome is untested.
